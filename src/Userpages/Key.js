@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileText, Eye, Save, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import { Upload, FileText, Eye, Save, AlertCircle, CheckCircle, Loader, Minimize2 } from 'lucide-react';
 import '../csstemplates/KeyOCRPage.css';
 
 const KeyOCRPage = () => {
@@ -76,6 +76,94 @@ const KeyOCRPage = () => {
     }
   };
 
+  // Helper function to get base64 size in MB
+  const getBase64SizeInMB = (base64String) => {
+    // Remove data URL prefix if present
+    const base64 = base64String.replace(/^data:image\/[a-z]+;base64,/, '');
+    // Calculate size: base64 is ~33% larger than original, so divide by 1.33
+    const sizeInBytes = (base64.length * 3) / 4;
+    return sizeInBytes / (1024 * 1024); // Convert to MB
+  };
+
+  // Function to compress base64 image
+  const compressBase64Image = (base64String, quality = 0.7, maxWidth = 1920) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let { width, height } = img;
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+        
+        // Remove data URL prefix to get just the base64 data
+        const base64Data = compressedBase64.replace(/^data:image\/jpeg;base64,/, '');
+        resolve(base64Data);
+      };
+      
+      img.src = `data:image/png;base64,${base64String}`;
+    });
+  };
+
+  // New function to check and compress images if needed
+  const checkAndCompressImages = async (imageList) => {
+    const processedImages = [];
+    let compressionCount = 0;
+    
+    for (let i = 0; i < imageList.length; i++) {
+      const image = imageList[i];
+      const sizeInMB = getBase64SizeInMB(image.data);
+      
+      if (sizeInMB > 4) {
+        // Compress the image
+        const compressedData = await compressBase64Image(image.data, 0.8, 1920);
+        const newSizeInMB = getBase64SizeInMB(compressedData);
+        
+        // If it's still too large, compress more aggressively
+        let finalData = compressedData;
+        if (newSizeInMB > 4) {
+          finalData = await compressBase64Image(image.data, 0.6, 1600);
+          const finalSizeInMB = getBase64SizeInMB(finalData);
+          
+          // Last resort - very aggressive compression
+          if (finalSizeInMB > 4) {
+            finalData = await compressBase64Image(image.data, 0.4, 1200);
+          }
+        }
+        
+        processedImages.push({
+          ...image,
+          data: finalData,
+          originalSize: sizeInMB.toFixed(2),
+          compressedSize: getBase64SizeInMB(finalData).toFixed(2),
+          compressed: true
+        });
+        
+        compressionCount++;
+      } else {
+        processedImages.push({
+          ...image,
+          originalSize: sizeInMB.toFixed(2),
+          compressed: false
+        });
+      }
+    }
+    
+    return { images: processedImages, compressionCount };
+  };
+
   const processCompleteWorkflow = async (file) => {
     setLoading(true);
     setError('');
@@ -85,19 +173,27 @@ const KeyOCRPage = () => {
       setStep(1);
       const convertedImages = await convertPdfToImages(file);
       
-      // Step 2: Perform OCR
+      // Step 2: Check and compress images if needed
       setStep(2);
-      const ocrData = await performOCR(convertedImages);
+      const { images: processedImages, compressionCount } = await checkAndCompressImages(convertedImages);
       
-      // Step 3: Save to Database
+      if (compressionCount > 0) {
+        setSuccess(`Compressed ${compressionCount} images to reduce size for processing.`);
+      }
+      
+      // Step 3: Perform OCR
       setStep(3);
+      const ocrData = await performOCR(processedImages);
+      
+      // Step 4: Save to Database
+      setStep(4);
       const saveResult = await saveToDatabase(ocrData);
       
-      // Step 4: Call additional API
-      setStep(4);
+      // Step 5: Call additional API
+      setStep(5);
       await callAdditionalAPI(selectedSubject);
       
-      setStep(5); // Final step
+      setStep(6); // Final step
       setSuccess(`Processing completed successfully! Key OCR saved and context uploaded for subject.`);
       
       // Reset form after successful completion
@@ -163,7 +259,10 @@ const KeyOCRPage = () => {
         results.push({
           page: i + 1,
           filename: image.filename,
-          ocr_data: ocrResult
+          ocr_data: ocrResult,
+          compressed: image.compressed || false,
+          originalSize: image.originalSize,
+          compressedSize: image.compressedSize
         });
       }
 
@@ -175,7 +274,12 @@ const KeyOCRPage = () => {
         pages: results.map(r => ({
           page_number: r.page,
           filename: r.filename,
-          ocr_data: r.ocr_data
+          ocr_data: r.ocr_data,
+          image_info: {
+            compressed: r.compressed,
+            original_size_mb: r.originalSize,
+            compressed_size_mb: r.compressedSize
+          }
         }))
       };
       
@@ -219,18 +323,38 @@ const KeyOCRPage = () => {
 
   const callAdditionalAPI = async (subjectId) => {
     try {
-      const response = await fetch(`https://student-answer.onrender.com/run/${subjectId}`, {
+      const response = await fetch(`http://127.0.0.1:5001/run/${subjectId}`, {
         method: 'GET',
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload context');
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`HTTP ${response.status}: Failed to upload context`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        console.error('Non-JSON Response:', responseText);
+        throw new Error('Server returned non-JSON response');
       }
 
       const result = await response.json();
       return result;
     } catch (err) {
-      throw new Error(`Context upload failed: ${err.message}`);
+      if (err.name === 'SyntaxError') {
+        throw new Error('Server returned invalid JSON response');
+      } else if (err.message.includes('Failed to fetch')) {
+        throw new Error('Network error: Unable to reach the server');
+      } else {
+        throw new Error(`Context upload failed: ${err.message}`);
+      }
     }
   };
 
@@ -249,10 +373,11 @@ const KeyOCRPage = () => {
   const StepIndicator = ({ currentStep }) => {
     const steps = [
       { num: 1, title: 'Convert PDF', icon: FileText },
-      { num: 2, title: 'OCR Processing', icon: Eye },
-      { num: 3, title: 'Save to Database', icon: Save },
-      { num: 4, title: 'Upload Context', icon: Upload },
-      { num: 5, title: 'Complete', icon: CheckCircle }
+      { num: 2, title: 'Compress Images', icon: Minimize2 },
+      { num: 3, title: 'OCR Processing', icon: Eye },
+      { num: 4, title: 'Save to Database', icon: Save },
+      { num: 5, title: 'Upload Context', icon: Upload },
+      { num: 6, title: 'Complete', icon: CheckCircle }
     ];
 
     return (
@@ -378,9 +503,10 @@ const KeyOCRPage = () => {
           <Loader className="spinning" size={24} />
           <p>
             {step === 1 && "Converting PDF to images..."}
-            {step === 2 && "Extracting text with OCR..."}
-            {step === 3 && "Saving to database..."}
-            {step === 4 && "Uploading context..."}
+            {step === 2 && "Checking and compressing images..."}
+            {step === 3 && "Extracting text with OCR..."}
+            {step === 4 && "Saving to database..."}
+            {step === 5 && "Uploading context..."}
           </p>
         </div>
       )}
@@ -410,7 +536,17 @@ const KeyOCRPage = () => {
                   alt={`Page ${index + 1}`}
                   className="preview-image"
                 />
-                <p className="image-label">Page {index + 1}</p>
+                <p className="image-label">
+                  Page {index + 1}
+                  {image.compressed && (
+                    <span className="compression-info">
+                      <br />
+                      <small>
+                        Compressed: {image.originalSize}MB → {image.compressedSize}MB
+                      </small>
+                    </span>
+                  )}
+                </p>
               </div>
             ))}
           </div>
@@ -422,6 +558,11 @@ const KeyOCRPage = () => {
           <h3>OCR Results</h3>
           <div className="ocr-summary">
             <p>Successfully processed {ocrResults.length} pages</p>
+            {ocrResults.some(r => r.compressed) && (
+              <p className="compression-summary">
+                {ocrResults.filter(r => r.compressed).length} images were compressed for optimal processing
+              </p>
+            )}
             <details className="ocr-details">
               <summary>View OCR Data</summary>
               <div className="json-display">

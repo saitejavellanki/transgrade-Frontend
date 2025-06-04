@@ -18,13 +18,16 @@ const UploadPage = () => {
 
   const API_BASE = 'http://localhost:5015'; // Your Flask server URL
   const DJANGO_API_BASE = 'http://localhost:8000'; // Your Django server URL
+  const CORRECTION_API_BASE = 'https://92cb-115-108-34-139.ngrok-free.app'; // OCR Correction API
 
   const steps = [
     { name: 'Upload PDF', icon: Upload },
     { name: 'Convert to Images', icon: Image },
+    { name: 'Save Images', icon: CheckCircle },
     { name: 'Extract Text (OCR)', icon: FileText },
     { name: 'Restructure Data', icon: RefreshCw },
     { name: 'Save to Database', icon: CheckCircle },
+    { name: 'Correct OCR Data', icon: RefreshCw },
     { name: 'View Results', icon: Eye }
   ];
 
@@ -97,8 +100,8 @@ const UploadPage = () => {
       if (response.ok) {
         setResults(prev => ({ ...prev, images: data.images }));
         setCurrentStep(2);
-        // Automatically proceed to OCR
-        await extractTextFromImages(data.images);
+        // Automatically proceed to save images to database
+        await saveImagesToDatabase(data.images);
       } else {
         setError(data.error || 'Failed to convert PDF');
       }
@@ -109,102 +112,12 @@ const UploadPage = () => {
     }
   };
 
-  const extractTextFromImages = async (imageData) => {
+  const saveImagesToDatabase = async (imageData) => {
     setCurrentStep(2);
-    const ocrResults = [];
-
-    try {
-      for (let i = 0; i < imageData.length; i++) {
-        const response = await fetch(`${API_BASE}/extract-text`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            image_data: imageData[i].data
-          })
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          ocrResults.push({
-            page: i + 1,
-            imagePath: imageData[i].path,
-            filename: imageData[i].filename,
-            data: result
-          });
-        } else {
-          const errorData = await response.json();
-          throw new Error(`OCR failed for page ${i + 1}: ${errorData.error || 'Unknown error'}`);
-        }
-      }
-
-      setResults(prev => ({ ...prev, ocrResults }));
-      setCurrentStep(3);
-      
-      // Automatically proceed to restructuring
-      await restructureData(ocrResults);
-      
-    } catch (err) {
-      setError('OCR processing failed: ' + err.message);
-    }
-  };
-
-  const restructureData = async (ocrResults) => {
-    setCurrentStep(3);
     setProcessing(true);
 
     try {
-      // Check if we have key OCR data
-      if (!keyOcrData || !keyOcrData.key_json) {
-        throw new Error('No answer key data available for this subject. Please upload the answer key first.');
-      }
-
-      // Create FormData to send JSON files
-      const formData = new FormData();
-      
-      // Use the key OCR data from database for key file
-      const keyJsonBlob = new Blob([JSON.stringify(keyOcrData.key_json, null, 2)], {
-        type: 'application/json'
-      });
-      
-      // Use student OCR results for student file
-      const studentJsonBlob = new Blob([JSON.stringify(ocrResults, null, 2)], {
-        type: 'application/json'
-      });
-      
-      formData.append('key', keyJsonBlob, 'key.json');
-      formData.append('student', studentJsonBlob, 'student.json');
-
-      const response = await fetch(`${API_BASE}/restructure-answers`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (response.ok) {
-        const restructuredText = await response.text();
-        setResults(prev => ({ ...prev, restructuredOutput: restructuredText }));
-        setCurrentStep(4);
-        
-        // Automatically proceed to save to database
-        await saveToDatabase(ocrResults, restructuredText);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to restructure data');
-      }
-    } catch (err) {
-      setError('Restructuring failed: ' + err.message);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const saveToDatabase = async (ocrResults, restructuredOutput) => {
-    setCurrentStep(4);
-    setProcessing(true);
-
-    try {
-      // First, create the script record with correct field names
+      // First, create the script record
       const scriptData = {
         student_id: selectedData.student.student_id,
         subject_id: selectedData.subject.subject_id
@@ -254,6 +167,166 @@ const UploadPage = () => {
         throw new Error(`Failed to create script record: ${errorResponse.error || 'Unknown error'}`);
       }
 
+      // **FIX: Update results state with scriptId immediately**
+      setResults(prev => ({ 
+        ...prev, 
+        scriptId
+      }));
+
+      // Save each image to ScriptImage model
+      const savedImages = [];
+      for (let i = 0; i < imageData.length; i++) {
+        const imageRecord = {
+          script_id: scriptId,
+          page_number: i + 1,
+          image_data: imageData[i].data, // Base64 encoded image data
+          image_filename: imageData[i].filename,
+          image_path: imageData[i].path || ''
+        };
+
+        const imageResponse = await fetch(`${DJANGO_API_BASE}/script-images/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(imageRecord)
+        });
+
+        if (imageResponse.ok) {
+          const savedImage = await imageResponse.json();
+          savedImages.push(savedImage);
+          console.log(`Image saved for page ${i + 1}:`, savedImage);
+        } else {
+          const errorData = await imageResponse.json();
+          console.error(`Failed to save image for page ${i + 1}:`, errorData);
+          // Continue with other images even if one fails
+        }
+      }
+
+      // Update results with saved images info
+      setResults(prev => ({ 
+        ...prev, 
+        savedImages 
+      }));
+
+      setCurrentStep(3);
+      // Automatically proceed to OCR with the scriptId
+      await extractTextFromImages(imageData, scriptId);
+      
+    } catch (err) {
+      setError('Failed to save images to database: ' + err.message);
+      console.error('Image save error:', err);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // **FIX: Pass scriptId as parameter to ensure it's available**
+  const extractTextFromImages = async (imageData, scriptId) => {
+    setCurrentStep(3);
+    setProcessing(true);
+    const ocrResults = [];
+
+    try {
+      for (let i = 0; i < imageData.length; i++) {
+        const response = await fetch(`${API_BASE}/extract-text`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image_data: imageData[i].data
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          ocrResults.push({
+            page: i + 1,
+            imagePath: imageData[i].path,
+            filename: imageData[i].filename,
+            data: result
+          });
+        } else {
+          const errorData = await response.json();
+          throw new Error(`OCR failed for page ${i + 1}: ${errorData.error || 'Unknown error'}`);
+        }
+      }
+
+      setResults(prev => ({ ...prev, ocrResults }));
+      setCurrentStep(4);
+      
+      // Automatically proceed to restructuring with scriptId
+      await restructureData(ocrResults, scriptId);
+      
+    } catch (err) {
+      setError('OCR processing failed: ' + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // **FIX: Pass scriptId as parameter**
+  const restructureData = async (ocrResults, scriptId) => {
+    setCurrentStep(4);
+    setProcessing(true);
+
+    try {
+      // Check if we have key OCR data
+      if (!keyOcrData || !keyOcrData.key_json) {
+        throw new Error('No answer key data available for this subject. Please upload the answer key first.');
+      }
+
+      // Create FormData to send JSON files
+      const formData = new FormData();
+      
+      // Use the key OCR data from database for key file
+      const keyJsonBlob = new Blob([JSON.stringify(keyOcrData.key_json, null, 2)], {
+        type: 'application/json'
+      });
+      
+      // Use student OCR results for student file
+      const studentJsonBlob = new Blob([JSON.stringify(ocrResults, null, 2)], {
+        type: 'application/json'
+      });
+      
+      formData.append('key', keyJsonBlob, 'key.json');
+      formData.append('student', studentJsonBlob, 'student.json');
+
+      const response = await fetch(`${API_BASE}/restructure-answers`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        const restructuredText = await response.text();
+        setResults(prev => ({ ...prev, restructuredOutput: restructuredText }));
+        setCurrentStep(5);
+        
+        // Automatically proceed to save OCR data to database with scriptId
+        await saveOcrDataToDatabase(ocrResults, restructuredText, scriptId);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to restructure data');
+      }
+    } catch (err) {
+      setError('Restructuring failed: ' + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // **FIX: Accept scriptId as parameter instead of trying to get it from results**
+  const saveOcrDataToDatabase = async (ocrResults, restructuredOutput, scriptId) => {
+    setCurrentStep(5);
+    setProcessing(true);
+
+    try {
+      // **FIX: Use the passed scriptId parameter**
+      if (!scriptId) {
+        throw new Error('No script ID available. Images may not have been saved properly.');
+      }
+
       // Process and structure the restructured output properly
       let structuredJson;
       try {
@@ -295,29 +368,6 @@ const UploadPage = () => {
           page_number: ocrResult.page,
           ocr_json: ocrResult.data,
           structured_json: structuredJson,
-          key_json: keyOcrData ? {
-            page: ocrResult.page,
-            filename: ocrResult.filename,
-            raw_ocr_data: ocrResult.data,
-            answer_key_reference: {
-              key_ocr_id: keyOcrData.key_ocr_id,
-              subject_id: keyOcrData.subject_id,
-              subject_name: keyOcrData.subject_name
-            },
-            extraction_metadata: {
-              timestamp: new Date().toISOString(),
-              image_path: ocrResult.imagePath
-            }
-          } : {
-            page: ocrResult.page,
-            filename: ocrResult.filename,
-            raw_ocr_data: ocrResult.data,
-            extraction_metadata: {
-              timestamp: new Date().toISOString(),
-              image_path: ocrResult.imagePath
-            },
-            warning: 'No answer key available for comparison'
-          },
           context: `Answer script OCR data - Page ${ocrResult.page} - Student: ${selectedData.student.name} (${selectedData.student.roll_number}) - Subject: ${selectedData.subject.subject_name} - Class: ${selectedData.class.class_name}${keyOcrData ? ' - Answer key used for processing' : ' - No answer key available'}`
         };
 
@@ -341,14 +391,60 @@ const UploadPage = () => {
 
       setResults(prev => ({ 
         ...prev, 
-        scriptId,
         savedOcrData 
       }));
-      setCurrentStep(5);
+      
+      setCurrentStep(6);
+      // Automatically proceed to OCR correction
+      await correctOcrData(selectedData.subject.subject_id, scriptId);
       
     } catch (err) {
       setError('Database save failed: ' + err.message);
       console.error('Database save error:', err);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // **NEW: OCR Correction API call**
+  const correctOcrData = async (subjectId, scriptId) => {
+    setCurrentStep(6);
+    setProcessing(true);
+
+    try {
+      console.log(`Calling OCR correction API for subject ${subjectId} and script ${scriptId}`);
+      
+      const response = await fetch(`${CORRECTION_API_BASE}/correct_ocr/${subjectId}/${scriptId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true' // Skip ngrok browser warning
+        }
+      });
+
+      if (response.ok) {
+        const correctionResult = await response.json();
+        console.log('OCR correction completed successfully:', correctionResult);
+        
+        // Update results with correction info
+        setResults(prev => ({ 
+          ...prev, 
+          correctionResult 
+        }));
+        
+        setCurrentStep(7); // Move to final step (View Results)
+      } else {
+        const errorData = await response.json();
+        console.error('OCR correction failed:', errorData);
+        // Don't throw error, just log warning and continue to results
+        console.warn(`OCR correction failed but continuing: ${errorData.error || 'Unknown error'}`);
+        setCurrentStep(7); // Still move to results even if correction fails
+      }
+    } catch (err) {
+      console.error('OCR correction network error:', err);
+      // Don't throw error, just log warning and continue to results
+      console.warn(`OCR correction network error but continuing: ${err.message}`);
+      setCurrentStep(7); // Still move to results even if correction fails
     } finally {
       setProcessing(false);
     }
@@ -521,21 +617,24 @@ const UploadPage = () => {
                 <h2>Processing Answer Script</h2>
                 <p>
                   {currentStep === 1 && "Converting PDF to images..."}
-                  {currentStep === 2 && "Extracting text using OCR..."}
-                  {currentStep === 3 && `Restructuring answer data${keyOcrData ? ' with answer key comparison' : ' without answer key'}...`}
-                  {currentStep === 4 && "Saving to database..."}
+                  {currentStep === 2 && "Saving images to database..."}
+                  {currentStep === 3 && "Extracting text using OCR..."}
+                  {currentStep === 4 && `Restructuring answer data${keyOcrData ? ' with answer key comparison' : ' without answer key'}...`}
+                  {currentStep === 5 && "Saving OCR data to database..."}
+                  {currentStep === 6 && "Correcting OCR data with AI..."}
                 </p>
                 <div className="processing-info">
                   <span>Student: {selectedData?.student?.name}</span>
                   <span>Subject: {selectedData?.subject?.subject_name}</span>
                   {keyOcrData && <span>Answer Key: Available ✓</span>}
+                  {results.scriptId && <span>Script ID: {results.scriptId}</span>}
                 </div>
               </div>
             </div>
           )}
 
           {/* Results Section */}
-          {currentStep === 5 && (
+          {currentStep === 7 && (
             <div className="results-section">
               <div className="results-header">
                 <h2>Processing Complete</h2>
@@ -546,6 +645,10 @@ const UploadPage = () => {
                   )}
                   {keyOcrData && (
                     <p className="key-info">✓ Processed with answer key comparison</p>
+                  )}
+                  <p className="images-info">✓ {results.images.length} images saved to database</p>
+                  {results.correctionResult && (
+                    <p className="correction-info">✓ OCR data corrected with AI</p>
                   )}
                 </div>
                 <div className="results-actions">
@@ -572,6 +675,10 @@ const UploadPage = () => {
                     <span className="stat-label">Pages Processed</span>
                   </div>
                   <div className="stat">
+                    <span className="stat-number">{results.images.length}</span>
+                    <span className="stat-label">Images Saved</span>
+                  </div>
+                  <div className="stat">
                     <span className="stat-number">{selectedData?.subject?.subject_name || 'N/A'}</span>
                     <span className="stat-label">Subject</span>
                   </div>
@@ -586,6 +693,10 @@ const UploadPage = () => {
                   <div className="stat">
                     <span className="stat-number">{keyOcrData ? '✓ Used' : '✗ N/A'}</span>
                     <span className="stat-label">Answer Key</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-number">{results.correctionResult ? '✓ Corrected' : '✗ N/A'}</span>
+                    <span className="stat-label">AI Correction</span>
                   </div>
                 </div>
               </div>
