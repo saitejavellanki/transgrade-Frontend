@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileText, Eye, Save, AlertCircle, CheckCircle, Loader, Minimize2 } from 'lucide-react';
+import { Upload, FileText, Eye, Save, AlertCircle, CheckCircle, Loader, Minimize2, BookOpen } from 'lucide-react';
 import '../csstemplates/KeyOCRPage.css';
 
 const KeyOCRPage = () => {
@@ -189,12 +189,16 @@ const KeyOCRPage = () => {
       setStep(4);
       const saveResult = await saveToDatabase(ocrData);
       
-      // Step 5: Call additional API
+      // Step 5: Call additional API (Context Upload)
       setStep(5);
       await callAdditionalAPI(selectedSubject);
       
-      setStep(6); // Final step
-      setSuccess(`Processing completed successfully! Key OCR saved and context uploaded for subject.`);
+      // Step 6: Generate Rubrics
+      setStep(6);
+      await generateRubrics(selectedSubject);
+      
+      setStep(7); // Final step
+      setSuccess(`Processing completed successfully! Key OCR saved, context uploaded, and rubrics generated for subject.`);
       
       // Reset form after successful completion
       setTimeout(() => {
@@ -358,6 +362,47 @@ const KeyOCRPage = () => {
     }
   };
 
+  const generateRubrics = async (subjectId) => {
+    try {
+      const response = await fetch(`http://localhost:5033/run/${subjectId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Rubrics API Error Response:', errorText);
+        throw new Error(`HTTP ${response.status}: Failed to generate rubrics`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        console.error('Non-JSON Response:', responseText);
+        throw new Error('Rubrics server returned non-JSON response');
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'error') {
+        throw new Error(result.message || 'Rubrics generation failed');
+      }
+
+      return result;
+    } catch (err) {
+      if (err.name === 'SyntaxError') {
+        throw new Error('Rubrics server returned invalid JSON response');
+      } else if (err.message.includes('Failed to fetch')) {
+        throw new Error('Network error: Unable to reach the rubrics server');
+      } else {
+        throw new Error(`Rubrics generation failed: ${err.message}`);
+      }
+    }
+  };
+
   const resetForm = () => {
     setPdfFile(null);
     setImages([]);
@@ -377,7 +422,8 @@ const KeyOCRPage = () => {
       { num: 3, title: 'OCR Processing', icon: Eye },
       { num: 4, title: 'Save to Database', icon: Save },
       { num: 5, title: 'Upload Context', icon: Upload },
-      { num: 6, title: 'Complete', icon: CheckCircle }
+      { num: 6, title: 'Generate Rubrics', icon: BookOpen },
+      { num: 7, title: 'Complete', icon: CheckCircle }
     ];
 
     return (
@@ -507,6 +553,7 @@ const KeyOCRPage = () => {
             {step === 3 && "Extracting text with OCR..."}
             {step === 4 && "Saving to database..."}
             {step === 5 && "Uploading context..."}
+            {step === 6 && "Generating rubrics..."}
           </p>
         </div>
       )}
