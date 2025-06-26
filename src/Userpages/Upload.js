@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileText, Image, Eye, Download, Loader2, CheckCircle, AlertCircle, RefreshCw, ArrowLeft, User, BookOpen, GraduationCap } from 'lucide-react';
+import { Upload, FileText, Image, Eye, Download, Loader2, CheckCircle, AlertCircle, RefreshCw, ArrowLeft, User, BookOpen, GraduationCap, Database, BarChart, FileCheck } from 'lucide-react';
 import '../csstemplates/UploadPage.css';
 
 const UploadPage = () => {
@@ -12,15 +12,23 @@ const UploadPage = () => {
     images: [],
     ocrResults: [],
     textractResults: null,
-    scriptId: null
+    scriptId: null,
+    correctionResult: null,
+    restructureResult: null,
+    analysisResult: null,
+    validationResult: null
   });
   const [error, setError] = useState('');
 
   const API_BASE = 'http://localhost:5015';
   const DJANGO_API_BASE = 'http://localhost:8000';
   const TEXTRACT_API_BASE = 'http://localhost:5000';
-  const CORRECTION_API_BASE = 'https://3bca-115-108-34-139.ngrok-free.app';
+  const CORRECTION_API_BASE = 'https://602a-115-108-34-139.ngrok-free.app';
   const VLM = 'http://localhost:5010';
+  const RESTRUCTURE_API_BASE = 'https://5ae3-123-176-39-154.ngrok-free.app';
+  // Add your new API endpoints here
+  const ANALYSIS_API_BASE = 'https://social-bananas-help.loca.lt'; // Replace with your analysis API
+  const VALIDATION_API_BASE = 'https://wild-rules-admire.loca.lt'; // Replace with your validation API
 
   const steps = [
     { name: 'Upload PDF', icon: Upload },
@@ -30,7 +38,10 @@ const UploadPage = () => {
     { name: 'Process with Textract', icon: RefreshCw },
     { name: 'Save to Database', icon: CheckCircle },
     { name: 'Correct OCR Data', icon: RefreshCw },
-    { name: 'View Results', icon: Eye }
+    { name: 'Restructure Data', icon: Database },
+    { name: 'Analyze Results', icon: BarChart }, // New step 8
+    { name: 'Validate & Finalize', icon: FileCheck }, // New step 9
+    { name: 'View Results', icon: Eye } // Now step 10
   ];
 
   useEffect(() => {
@@ -109,7 +120,16 @@ const UploadPage = () => {
     if (file && file.type === 'application/pdf') {
       setPdfFile(file);
       setError('');
-      setResults({ images: [], ocrResults: [], textractResults: null, scriptId: null });
+      setResults({ 
+        images: [], 
+        ocrResults: [], 
+        textractResults: null, 
+        scriptId: null,
+        correctionResult: null,
+        restructureResult: null,
+        analysisResult: null,
+        validationResult: null
+      });
       setCurrentStep(0);
     } else {
       setError('Please select a valid PDF file');
@@ -435,9 +455,107 @@ const UploadPage = () => {
       }
       
       setCurrentStep(7);
+      await restructureData(subjectId, scriptId);
     } catch (err) {
       console.warn(`OCR correction failed but continuing: ${err.message}`);
       setCurrentStep(7);
+      await restructureData(selectedData.subject.subject_id, scriptId);
+    } finally {
+      setProcessing(false);
+    }
+  };
+const restructureData = async (subjectId, scriptId) => {
+  setCurrentStep(7);
+  setProcessing(true);
+
+  try {
+    const restructureResult = await fetch(`${RESTRUCTURE_API_BASE}/restructure/${subjectId}/${scriptId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true', // Skip ngrok browser warning
+        'User-Agent': 'MyApp/1.0'
+      }
+    });
+
+    if (restructureResult.ok) {
+      const result = await restructureResult.json();
+      setResults(prev => ({ ...prev, restructureResult: result }));
+    } else {
+      console.warn('Restructure API call failed but continuing');
+    }
+    
+    setCurrentStep(8);
+    await analyzeResults(subjectId, scriptId);
+  } catch (err) {
+    console.warn(`Data restructuring failed but continuing: ${err.message}`);
+    setCurrentStep(8);
+    await analyzeResults(selectedData.subject.subject_id, scriptId);
+  } finally {
+    setProcessing(false);
+  }
+};
+
+
+  // NEW STEP 8: Analyze Results
+  const analyzeResults = async (subjectId, scriptId) => {
+    setCurrentStep(8);
+    setProcessing(true);
+
+    try {
+      // Replace this with your actual analysis API call
+      const analysisResult = await fetch(`${ANALYSIS_API_BASE}/evaluate_batch/${scriptId}/${subjectId}`, {
+  method: 'GET',  // Changed from POST to GET
+  headers: {
+    'Content-Type': 'application/json'
+  }
+  // Remove the body since it's now a GET request
+});
+
+      if (analysisResult.ok) {
+        const result = await analysisResult.json();
+        setResults(prev => ({ ...prev, analysisResult: result }));
+      } else {
+        console.warn('Analysis API call failed but continuing');
+      }
+      
+      setCurrentStep(9);
+      await validateAndFinalize(subjectId, scriptId);
+    } catch (err) {
+      console.warn(`Results analysis failed but continuing: ${err.message}`);
+      setCurrentStep(9);
+      await validateAndFinalize(selectedData.subject.subject_id, scriptId);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // NEW STEP 9: Validate & Finalize
+  const validateAndFinalize = async (subjectId, scriptId) => {
+    setCurrentStep(9);
+    setProcessing(true);
+
+    try {
+      // Replace this with your actual validation API call
+      const validationResult = await fetch(`${VALIDATION_API_BASE}/validate/${scriptId}/${subjectId}`, {
+  method: 'GET',  // Changed from POST to GET
+  headers: {
+    'Content-Type': 'application/json'
+  }
+  // Remove the body since it's now a GET request
+});
+
+      if (validationResult.ok) {
+        const result = await validationResult.json();
+        setResults(prev => ({ ...prev, validationResult: result }));
+      } else {
+        console.warn('Validation API call failed but continuing');
+      }
+      
+      setCurrentStep(10); // Final step - View Results
+    } catch (err) {
+      console.warn(`Validation and finalization failed but continuing: ${err.message}`);
+      setCurrentStep(10);
     } finally {
       setProcessing(false);
     }
@@ -466,9 +584,32 @@ const UploadPage = () => {
     }
   };
 
+  const downloadAnalysisResults = () => {
+    if (results.analysisResult) {
+      const filename = `analysis_results_${selectedData?.student?.name || 'student'}_${selectedData?.subject?.subject_name || 'subject'}_${Date.now()}.json`;
+      downloadResults(results.analysisResult, filename);
+    }
+  };
+
+  const downloadValidationResults = () => {
+    if (results.validationResult) {
+      const filename = `validation_results_${selectedData?.student?.name || 'student'}_${selectedData?.subject?.subject_name || 'subject'}_${Date.now()}.json`;
+      downloadResults(results.validationResult, filename);
+    }
+  };
+
   const resetProcess = () => {
     setPdfFile(null);
-    setResults({ images: [], ocrResults: [], textractResults: null, scriptId: null });
+    setResults({ 
+      images: [], 
+      ocrResults: [], 
+      textractResults: null, 
+      scriptId: null,
+      correctionResult: null,
+      restructureResult: null,
+      analysisResult: null,
+      validationResult: null
+    });
     setCurrentStep(0);
     setError('');
     setProcessing(false);
@@ -600,6 +741,9 @@ const UploadPage = () => {
                   {currentStep === 4 && "Processing with AWS Textract OCR..."}
                   {currentStep === 5 && "Saving OCR data to database..."}
                   {currentStep === 6 && "Correcting OCR data with AI..."}
+                  {currentStep === 7 && "Restructuring data for analysis..."}
+                  {currentStep === 8 && "Analyzing results and generating insights..."}
+                  {currentStep === 9 && "Validating data and finalizing results..."}
                 </p>
                 <div className="processing-info">
                   <span>Student: {selectedData?.student?.name}</span>
@@ -607,12 +751,15 @@ const UploadPage = () => {
                   {keyOcrData && <span>Answer Key: Available ✓</span>}
                   {results.scriptId && <span>Script ID: {results.scriptId}</span>}
                   {currentStep === 4 && <span>Textract: Processing ⏳</span>}
+                  {currentStep === 7 && <span>Restructuring: In Progress ⏳</span>}
+                  {currentStep === 8 && <span>Analysis: In Progress ⏳</span>}
+                  {currentStep === 9 && <span>Validation: In Progress ⏳</span>}
                 </div>
               </div>
             </div>
           )}
 
-          {currentStep === 7 && (
+          {currentStep === 10 && (
             <div className="results-section">
               <div className="results-header">
                 <h2>Processing Complete</h2>
@@ -622,95 +769,272 @@ const UploadPage = () => {
                   {keyOcrData && <p className="key-info">✓ Processed with answer key comparison</p>}
                   <p className="images-info">✓ {results.images.length} images saved to database</p>
                   <p className="ocr-info">✓ {results.ocrResults.length} pages processed with regular OCR</p>
-                  {results.textractResults && <p className="textract-info">✓ {results.textractResults.successfully_processed || 0} pages processed with Textract</p>}
+                  // This is the remaining part of your UploadPage.js file
+// Place this after line 551 where it cuts off
+
+                  {results.textractResults && <p className="textract-info">✓ AWS Textract processing completed</p>}
                   {results.correctionResult && <p className="correction-info">✓ OCR data corrected with AI</p>}
-                </div>
-                <div className="results-actions">
-                  <button className="download-btn primary" onClick={downloadTextractResults}>
-                    <Download size={20} />
-                    Download Textract Results
-                  </button>
-                  <button className="download-btn secondary" onClick={downloadJSON}>
-                    <Download size={20} />
-                    Download Regular OCR Data
-                  </button>
-                  <button className="reset-btn" onClick={resetProcess}>
-                    Process Another Script
-                  </button>
+                  {results.restructureResult && <p className="restructure-info">✓ Data restructured for analysis</p>}
+                  {results.analysisResult && <p className="analysis-info">✓ Results analyzed and insights generated</p>}
+                  {results.validationResult && <p className="validation-info">✓ Data validated and finalized</p>}
                 </div>
               </div>
 
-              <div className="results-summary">
-                <h3>Processing Summary</h3>
-                <div className="summary-stats">
-                  <div className="stat">
-                    <span className="stat-number">{results.ocrResults.length}</span>
-                    <span className="stat-label">Pages Processed</span>
+              <div className="results-grid">
+                {/* OCR Results Card */}
+                <div className="result-card">
+                  <div className="result-header">
+                    <FileText size={24} />
+                    <h3>OCR Results</h3>
+                    <span className="result-count">{results.ocrResults.length} pages</span>
                   </div>
-                  <div className="stat">
-                    <span className="stat-number">{results.images.length}</span>
-                    <span className="stat-label">Images Saved</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-number">{results.textractResults?.successfully_processed || 0}</span>
-                    <span className="stat-label">Textract Pages</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-number">{selectedData?.subject?.subject_name || 'N/A'}</span>
-                    <span className="stat-label">Subject</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-number">{selectedData?.student?.roll_number || 'N/A'}</span>
-                    <span className="stat-label">Roll Number</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-number">✓ Saved</span>
-                    <span className="stat-label">Database Status</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-number">{keyOcrData ? '✓ Used' : '✗ N/A'}</span>
-                    <span className="stat-label">Answer Key</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-number">{results.correctionResult ? '✓ Corrected' : '✗ N/A'}</span>
-                    <span className="stat-label">AI Correction</span>
+                  <div className="result-content">
+                    <p>Regular OCR processing completed for all pages</p>
+                    <div className="result-actions">
+                      <button className="btn-secondary" onClick={downloadJSON}>
+                        <Download size={16} />
+                        Download OCR JSON
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {results.textractResults && (
-                <div className="textract-section">
-                  <h3>AWS Textract Processing Results</h3>
-                  <div className="textract-summary">
-                    <p><strong>Total Images:</strong> {results.textractResults.total_images}</p>
-                    <p><strong>Successfully Processed:</strong> {results.textractResults.successfully_processed}</p>
-                    <p><strong>Failed Images:</strong> {results.textractResults.failed_images}</p>
-                    <p><strong>Saved to Database:</strong> {results.textractResults.saved_to_database}</p>
-                    <p><strong>Processing Completed:</strong> {new Date(results.textractResults.processed_at).toLocaleString()}</p>
-                  </div>
-                </div>
-              )}
-
-              <details className="ocr-details">
-                <summary>View Regular OCR Data</summary>
-                <div className="results-grid">
-                  {results.ocrResults.map((result, index) => (
-                    <div key={index} className="result-card">
-                      <h4>Page {result.page}</h4>
-                      <div className="result-preview">
-                        <pre className="json-preview">
-                          {JSON.stringify(result.data, null, 2).substring(0, 200)}
-                          {JSON.stringify(result.data, null, 2).length > 200 && '...'}
-                        </pre>
+                {/* Textract Results Card */}
+                {results.textractResults && (
+                  <div className="result-card">
+                    <div className="result-header">
+                      <RefreshCw size={24} />
+                      <h3>Textract Results</h3>
+                      <span className="result-status success">AWS Processed</span>
+                    </div>
+                    <div className="result-content">
+                      <p>Advanced AWS Textract processing completed</p>
+                      <div className="result-stats">
+                        <small>Enhanced text extraction and structure analysis</small>
+                      </div>
+                      <div className="result-actions">
+                        <button className="btn-secondary" onClick={downloadTextractResults}>
+                          <Download size={16} />
+                          Download Textract JSON
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </details>
+                  </div>
+                )}
+
+                {/* Correction Results Card */}
+                {results.correctionResult && (
+                  <div className="result-card">
+                    <div className="result-header">
+                      <CheckCircle size={24} />
+                      <h3>AI Correction</h3>
+                      <span className="result-status success">Corrected</span>
+                    </div>
+                    <div className="result-content">
+                      <p>OCR data corrected using AI processing</p>
+                      <div className="result-stats">
+                        {results.correctionResult.status && (
+                          <small>Status: {results.correctionResult.status}</small>
+                        )}
+                        {results.correctionResult.corrections_applied && (
+                          <small>Corrections: {results.correctionResult.corrections_applied}</small>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Restructure Results Card */}
+                {results.restructureResult && (
+                  <div className="result-card">
+                    <div className="result-header">
+                      <Database size={24} />
+                      <h3>Data Restructure</h3>
+                      <span className="result-status success">Structured</span>
+                    </div>
+                    <div className="result-content">
+                      <p>Data restructured for analysis and evaluation</p>
+                      <div className="result-stats">
+                        {results.restructureResult.questions_identified && (
+                          <small>Questions: {results.restructureResult.questions_identified}</small>
+                        )}
+                        {results.restructureResult.answers_processed && (
+                          <small>Answers: {results.restructureResult.answers_processed}</small>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Analysis Results Card */}
+                {results.analysisResult && (
+                  <div className="result-card">
+                    <div className="result-header">
+                      <BarChart size={24} />
+                      <h3>Analysis Results</h3>
+                      <span className="result-status success">Analyzed</span>
+                    </div>
+                    <div className="result-content">
+                      <p>Comprehensive analysis and scoring completed</p>
+                      <div className="result-stats">
+                        {results.analysisResult.total_score && (
+                          <small>Score: {results.analysisResult.total_score}</small>
+                        )}
+                        {results.analysisResult.feedback_generated && (
+                          <small>Feedback: Generated</small>
+                        )}
+                        {results.analysisResult.insights_count && (
+                          <small>Insights: {results.analysisResult.insights_count}</small>
+                        )}
+                      </div>
+                      <div className="result-actions">
+                        <button className="btn-secondary" onClick={downloadAnalysisResults}>
+                          <Download size={16} />
+                          Download Analysis
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation Results Card */}
+                {results.validationResult && (
+                  <div className="result-card">
+                    <div className="result-header">
+                      <FileCheck size={24} />
+                      <h3>Validation & Final Report</h3>
+                      <span className="result-status success">Validated</span>
+                    </div>
+                    <div className="result-content">
+                      <p>Data validated and final report generated</p>
+                      <div className="result-stats">
+                        {results.validationResult.validation_status && (
+                          <small>Status: {results.validationResult.validation_status}</small>
+                        )}
+                        {results.validationResult.completeness_score && (
+                          <small>Completeness: {results.validationResult.completeness_score}%</small>
+                        )}
+                        {results.validationResult.accuracy_score && (
+                          <small>Accuracy: {results.validationResult.accuracy_score}%</small>
+                        )}
+                      </div>
+                      <div className="result-actions">
+                        <button className="btn-secondary" onClick={downloadValidationResults}>
+                          <Download size={16} />
+                          Download Report
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Images Preview Card */}
+                {results.images.length > 0 && (
+                  <div className="result-card full-width">
+                    <div className="result-header">
+                      <Image size={24} />
+                      <h3>Processed Images</h3>
+                      <span className="result-count">{results.images.length} images</span>
+                    </div>
+                    <div className="result-content">
+                      <div className="images-grid">
+                        {results.images.slice(0, 4).map((image, index) => (
+                          <div key={index} className="image-preview">
+                            <img
+                              src={`data:image/jpeg;base64,${image.data}`}
+                              alt={`Page ${index + 1}`}
+                              className="preview-image"
+                            />
+                            <span className="image-label">Page {index + 1}</span>
+                          </div>
+                        ))}
+                        {results.images.length > 4 && (
+                          <div className="image-preview more-images">
+                            <span>+{results.images.length - 4} more</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="results-actions">
+                <button className="btn-primary" onClick={resetProcess}>
+                  <RefreshCw size={16} />
+                  Process Another Script
+                </button>
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => window.history.back()}
+                >
+                  <ArrowLeft size={16} />
+                  Back to Selection
+                </button>
+              </div>
             </div>
           )}
         </div>
       </main>
+
+      {/* Processing Status Modal */}
+      {processing && currentStep >= 4 && currentStep <= 9 && (
+        <div className="processing-overlay">
+          <div className="processing-modal">
+            <div className="processing-modal-content">
+              <div className="processing-animation">
+                <Loader2 size={64} className="spinner large" />
+              </div>
+              <h3>Advanced Processing in Progress</h3>
+              <p>
+                {currentStep === 4 && "AWS Textract is analyzing document structure and extracting enhanced text data..."}
+                {currentStep === 5 && "Saving processed OCR data with metadata to database..."}
+                {currentStep === 6 && "AI is correcting and enhancing OCR accuracy..."}
+                {currentStep === 7 && "Restructuring data for comprehensive analysis..."}
+                {currentStep === 8 && "Analyzing answers and generating performance insights..."}
+                {currentStep === 9 && "Validating results and generating final report..."}
+              </p>
+              <div className="processing-details">
+                <div className="detail-item">
+                  <span>Student:</span>
+                  <span>{selectedData?.student?.name}</span>
+                </div>
+                <div className="detail-item">
+                  <span>Subject:</span>
+                  <span>{selectedData?.subject?.subject_name}</span>
+                </div>
+                {results.scriptId && (
+                  <div className="detail-item">
+                    <span>Script ID:</span>
+                    <span>{results.scriptId}</span>
+                  </div>
+                )}
+                <div className="detail-item">
+                  <span>Pages:</span>
+                  <span>{results.images.length || 0}</span>
+                </div>
+                {keyOcrData && (
+                  <div className="detail-item">
+                    <span>Answer Key:</span>
+                    <span className="success">Available ✓</span>
+                  </div>
+                )}
+              </div>
+              <div className="processing-progress">
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${((currentStep) / (steps.length - 1)) * 100}%` }}
+                  ></div>
+                </div>
+                <span className="progress-text">
+                  Step {currentStep} of {steps.length - 1}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
