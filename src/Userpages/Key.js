@@ -33,7 +33,7 @@ const KeyOCRPage = () => {
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch('http://localhost:8000/classes/');
+      const response = await fetch('http://3.7.37.42:8000/classes/');
       const data = await response.json();
       setClasses(data);
     } catch (err) {
@@ -43,7 +43,7 @@ const KeyOCRPage = () => {
 
   const fetchSubjects = async (classId) => {
     try {
-      const response = await fetch(`http://localhost:8000/subjects/?class_id=${classId}`);
+      const response = await fetch(`http://3.7.37.42:8000/subjects/?class_id=${classId}`);
       const data = await response.json();
       setSubjects(data);
     } catch (err) {

@@ -16,7 +16,7 @@ const MainPage = () => {
   const [error, setError] = useState('');
 
   // API base URL - replace with your actual Django backend URL
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://65.0.249.245:8000';
 
   // Fetch classes on component mount
   useEffect(() => {

@@ -8,6 +8,7 @@ const UploadPage = () => {
   const [processing, setProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [keyOcrData, setKeyOcrData] = useState(null);
+  const [isMcq, setIsMcq] = useState(false);
   const [results, setResults] = useState({
     images: [],
     ocrResults: [],
@@ -20,15 +21,16 @@ const UploadPage = () => {
   });
   const [error, setError] = useState('');
 
-  const API_BASE = 'http://localhost:5015';
-  const DJANGO_API_BASE = 'http://localhost:8000';
-  const TEXTRACT_API_BASE = 'http://localhost:5000';
-  const CORRECTION_API_BASE = 'https://602a-115-108-34-139.ngrok-free.app';
-  const VLM = 'http://localhost:5010';
-  const RESTRUCTURE_API_BASE = 'https://5ae3-123-176-39-154.ngrok-free.app';
+  const API_BASE = 'http://65.0.249.245:5015';
+  const DJANGO_API_BASE = 'http://65.0.249.245:8000';
+  const TEXTRACT_API_BASE = 'http://65.0.249.245:5000';
+  const CORRECTION_API_BASE = '';
+  const VLM = 'http://65.0.249.245:5010';
+  const RESTRUCTURE_API_BASE = 'http://65.0.249.245:6000';
   // Add your new API endpoints here
   const ANALYSIS_API_BASE = 'https://social-bananas-help.loca.lt'; // Replace with your analysis API
   const VALIDATION_API_BASE = 'https://wild-rules-admire.loca.lt'; // Replace with your validation API
+  const MCQ_API_BASE = 'http://127.0.0.1:5002';
 
   const steps = [
     { name: 'Upload PDF', icon: Upload },
@@ -256,46 +258,71 @@ const UploadPage = () => {
     }
   };
 
+  const processMcqData = async (scriptId) => {
+  setProcessing(true);
+  
+  try {
+    const mcqResult = await apiCall(`${MCQ_API_BASE}/run/${scriptId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    setResults(prev => ({ ...prev, mcqResult }));
+    console.log('MCQ processing completed:', mcqResult);
+  } catch (err) {
+    console.warn(`MCQ processing failed but continuing: ${err.message}`);
+    setError(`MCQ processing warning: ${err.message}`);
+  } finally {
+    setProcessing(false);
+  }
+};
+
   const extractTextFromImages = async (imageData, scriptId) => {
-    setCurrentStep(3);
-    setProcessing(true);
-    const ocrResults = [];
+  setCurrentStep(3);
+  setProcessing(true);
+  const ocrResults = [];
 
-    try {
-      for (let i = 0; i < imageData.length; i++) {
-        let imageDataForOcr = imageData[i].data;
-        const imageSizeKB = (imageData[i].data.length * 3/4) / 1024;
-        
-        if (imageSizeKB > 3500) {
-          imageDataForOcr = await compressImage(imageData[i].data);
-        }
-
-        const result = await apiCall(`${API_BASE}/extract-text`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image_data: imageDataForOcr })
-        });
-
-        ocrResults.push({
-          page: i + 1,
-          imagePath: imageData[i].path,
-          filename: imageData[i].filename,
-          data: result
-        });
+  try {
+    for (let i = 0; i < imageData.length; i++) {
+      let imageDataForOcr = imageData[i].data;
+      const imageSizeKB = (imageData[i].data.length * 3/4) / 1024;
+      
+      if (imageSizeKB > 3500) {
+        imageDataForOcr = await compressImage(imageData[i].data);
       }
 
-      setResults(prev => ({ ...prev, ocrResults }));
-      setCurrentStep(4);
-      
-      await processScript(scriptId);
-      await processWithTextract(scriptId, ocrResults);
-      
-    } catch (err) {
-      setError('OCR processing failed: ' + err.message);
-    } finally {
-      setProcessing(false);
+      const result = await apiCall(`${API_BASE}/extract-text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_data: imageDataForOcr })
+      });
+
+      ocrResults.push({
+        page: i + 1,
+        imagePath: imageData[i].path,
+        filename: imageData[i].filename,
+        data: result
+      });
     }
-  };
+
+    setResults(prev => ({ ...prev, ocrResults }));
+    
+    // NEW: Process MCQ if toggle is enabled
+    if (isMcq) {
+      await processMcqData(scriptId);
+    }
+    
+    setCurrentStep(4);
+    
+    await processScript(scriptId);
+    await processWithTextract(scriptId, ocrResults);
+    
+  } catch (err) {
+    setError('OCR processing failed: ' + err.message);
+  } finally {
+    setProcessing(false);
+  }
+};
 
   const processWithTextract = async (scriptId, ocrResults) => {
     setCurrentStep(4);
@@ -599,21 +626,23 @@ const restructureData = async (subjectId, scriptId) => {
   };
 
   const resetProcess = () => {
-    setPdfFile(null);
-    setResults({ 
-      images: [], 
-      ocrResults: [], 
-      textractResults: null, 
-      scriptId: null,
-      correctionResult: null,
-      restructureResult: null,
-      analysisResult: null,
-      validationResult: null
-    });
-    setCurrentStep(0);
-    setError('');
-    setProcessing(false);
-  };
+  setPdfFile(null);
+  setIsMcq(false);  // ADD THIS LINE
+  setResults({ 
+    images: [], 
+    ocrResults: [], 
+    textractResults: null, 
+    scriptId: null,
+    correctionResult: null,
+    restructureResult: null,
+    analysisResult: null,
+    validationResult: null,
+    mcqResult: null  // ADD THIS LINE
+  });
+  setCurrentStep(0);
+  setError('');
+  setProcessing(false);
+};
 
   return (
     <div className="upload-page">
@@ -714,6 +743,23 @@ const restructureData = async (subjectId, scriptId) => {
                 
                 {pdfFile && (
                   <div className="file-info">
+                  
+{pdfFile && (
+  <div className="mcq-toggle-section">
+    <label className="mcq-toggle-label">
+      <input
+        type="checkbox"
+        checked={isMcq}
+        onChange={(e) => setIsMcq(e.target.checked)}
+        className="mcq-checkbox"
+      />
+      <span className="mcq-toggle-text">MCQ Processing</span>
+      <small className="mcq-toggle-description">
+        Enable for multiple choice question analysis
+      </small>
+    </label>
+  </div>
+)}
                     <FileText size={20} />
                     <span>{pdfFile.name}</span>
                     <span className="file-size">({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)</span>
@@ -737,7 +783,8 @@ const restructureData = async (subjectId, scriptId) => {
                 <p>
                   {currentStep === 1 && "Converting PDF to images..."}
                   {currentStep === 2 && "Saving images to database..."}
-                  {currentStep === 3 && "Extracting text using OCR..."}
+                  {currentStep === 3 && isMcq && "Processing MCQ data..."}
+                  {currentStep === 3 && !isMcq && "Extracting text using OCR..."}
                   {currentStep === 4 && "Processing with AWS Textract OCR..."}
                   {currentStep === 5 && "Saving OCR data to database..."}
                   {currentStep === 6 && "Correcting OCR data with AI..."}
@@ -798,6 +845,38 @@ const restructureData = async (subjectId, scriptId) => {
                     </div>
                   </div>
                 </div>
+
+                
+{/* MCQ Results Card */}
+{results.mcqResult && (
+  <div className="result-card">
+    <div className="result-header">
+      <CheckCircle size={24} />
+      <h3>MCQ Analysis</h3>
+      <span className="result-status success">Processed</span>
+    </div>
+    <div className="result-content">
+      <p>Multiple choice questions analyzed and processed</p>
+      <div className="result-stats">
+        {results.mcqResult.total_questions && (
+          <small>Questions: {results.mcqResult.total_questions}</small>
+        )}
+        {results.mcqResult.processed_answers && (
+          <small>Answers: {results.mcqResult.processed_answers}</small>
+        )}
+      </div>
+      <div className="result-actions">
+        <button 
+          className="btn-secondary" 
+          onClick={() => downloadResults(results.mcqResult, `mcq_results_${selectedData?.student?.name || 'student'}_${Date.now()}.json`)}
+        >
+          <Download size={16} />
+          Download MCQ Results
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
                 {/* Textract Results Card */}
                 {results.textractResults && (

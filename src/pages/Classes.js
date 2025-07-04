@@ -314,7 +314,7 @@ function ClassesManagement() {
   const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'table'
 
   // Backend URL - adjust this to match your Django server
-  const API_BASE_URL = 'http://localhost:8000';
+  const API_BASE_URL = 'http://3.7.37.42:8000';
 
   // Inject styles
   useEffect(() => {
