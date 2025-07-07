@@ -22,15 +22,15 @@ const UploadPage = () => {
   const [error, setError] = useState('');
 
   const API_BASE = 'http://65.0.249.245:5015';
-  const DJANGO_API_BASE = 'http://65.0.249.245:8000';
+  const DJANGO_API_BASE = 'https://transgrade-lb-1-896147582.ap-south-1.elb.amazonaws.com';
   const TEXTRACT_API_BASE = 'http://65.0.249.245:5000';
   const CORRECTION_API_BASE = 'http://65.0.249.245:5055';
   const VLM = 'http://65.0.249.245:5010';
   const RESTRUCTURE_API_BASE = 'http://65.0.249.245:6000';
   // Add your new API endpoints here
-  const ANALYSIS_API_BASE = 'https://social-bananas-help.loca.lt'; // Replace with your analysis API
-  const VALIDATION_API_BASE = 'https://wild-rules-admire.loca.lt'; // Replace with your validation API
-  const MCQ_API_BASE = 'http://127.0.0.1:5002';
+  const ANALYSIS_API_BASE = 'http://65.0.249.245:7000'; // Replace with your analysis API
+  const VALIDATION_API_BASE = 'http://65.0.249.245:7000'; // Replace with your validation API
+  const MCQ_API_BASE = 'http://65.0.249.245:5002';
 
   const steps = [
     { name: 'Upload PDF', icon: Upload },

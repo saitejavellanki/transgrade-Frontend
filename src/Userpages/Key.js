@@ -2,6 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Upload, FileText, Eye, Save, AlertCircle, CheckCircle, Loader, Minimize2, BookOpen } from 'lucide-react';
 import '../csstemplates/KeyOCRPage.css';
 
+// Centralized API URLs Configuration
+const API_URLS = {
+  // Main API endpoints
+  CLASSES: 'http://3.7.37.42:8000/classes/',
+  SUBJECTS: 'http://3.7.37.42:8000/subjects/',
+  KEY_OCR: 'http://localhost:8000/key-ocr/',
+  
+  // PDF Processing endpoints
+  CONVERT_PDF: 'http://localhost:5015/convert-pdf',
+  EXTRACT_TEXT: 'http://localhost:5015/extract-text',
+  
+  // Additional API endpoints
+  CONTEXT_UPLOAD: 'http://127.0.0.1:5001/run/',
+  GENERATE_RUBRICS: 'http://localhost:5033/run/'
+};
+
 const KeyOCRPage = () => {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -33,7 +49,7 @@ const KeyOCRPage = () => {
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch('http://3.7.37.42:8000/classes/');
+      const response = await fetch(API_URLS.CLASSES);
       const data = await response.json();
       setClasses(data);
     } catch (err) {
@@ -43,7 +59,7 @@ const KeyOCRPage = () => {
 
   const fetchSubjects = async (classId) => {
     try {
-      const response = await fetch(`http://3.7.37.42:8000/subjects/?class_id=${classId}`);
+      const response = await fetch(`${API_URLS.SUBJECTS}?class_id=${classId}`);
       const data = await response.json();
       setSubjects(data);
     } catch (err) {
@@ -217,7 +233,7 @@ const KeyOCRPage = () => {
       const formData = new FormData();
       formData.append('pdf', file);
 
-      const response = await fetch('http://localhost:5015/convert-pdf', {
+      const response = await fetch(API_URLS.CONVERT_PDF, {
         method: 'POST',
         body: formData,
       });
@@ -245,7 +261,7 @@ const KeyOCRPage = () => {
       for (let i = 0; i < imageList.length; i++) {
         const image = imageList[i];
         
-        const response = await fetch('http://localhost:5015/extract-text', {
+        const response = await fetch(API_URLS.EXTRACT_TEXT, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -305,7 +321,7 @@ const KeyOCRPage = () => {
         key_json: ocrData
       };
 
-      const response = await fetch('http://localhost:8000/key-ocr/', {
+      const response = await fetch(API_URLS.KEY_OCR, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -327,7 +343,7 @@ const KeyOCRPage = () => {
 
   const callAdditionalAPI = async (subjectId) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5001/run/${subjectId}`, {
+      const response = await fetch(`${API_URLS.CONTEXT_UPLOAD}${subjectId}`, {
         method: 'GET',
         headers: {
           'ngrok-skip-browser-warning': 'true',
@@ -364,7 +380,7 @@ const KeyOCRPage = () => {
 
   const generateRubrics = async (subjectId) => {
     try {
-      const response = await fetch(`http://localhost:5033/run/${subjectId}`, {
+      const response = await fetch(`${API_URLS.GENERATE_RUBRICS}${subjectId}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
