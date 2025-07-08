@@ -21,11 +21,11 @@ const UploadPage = () => {
   });
   const [error, setError] = useState('');
 
-  const API_BASE = 'http://65.0.249.245:5015';
-  const DJANGO_API_BASE = 'https://transgrade-lb-1-896147582.ap-south-1.elb.amazonaws.com';
-  const TEXTRACT_API_BASE = 'http://65.0.249.245:5000';
+  const API_BASE = 'https://transback.transpoze.ai/app';
+  const DJANGO_API_BASE = 'https://transback.transpoze.ai';
+  const TEXTRACT_API_BASE = 'https://transback.transpoze.ai/textract';
   const CORRECTION_API_BASE = 'http://65.0.249.245:5055';
-  const VLM = 'http://65.0.249.245:5010';
+  const VLM = 'https://transback.transpoze.ai/diagram';
   const RESTRUCTURE_API_BASE = 'http://65.0.249.245:6000';
   // Add your new API endpoints here
   const ANALYSIS_API_BASE = 'http://65.0.249.245:7000'; // Replace with your analysis API

@@ -17,7 +17,7 @@ function StudentForm() {
   const [error, setError] = useState('');
 
   // Backend URL - adjust this to match your Django server
-  const API_BASE_URL = 'https://transgrade-lb-1-896147582.ap-south-1.elb.amazonaws.com';
+  const API_BASE_URL = 'https://transback.transpoze.ai';
 
   // Fetch classes and subjects on component mount
   useEffect(() => {
