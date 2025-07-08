@@ -26,11 +26,11 @@ const UploadPage = () => {
   const TEXTRACT_API_BASE = 'https://transback.transpoze.ai/textract';
   const CORRECTION_API_BASE = 'https://www.transgrade.transpoze.ai/correction';
   const VLM = 'https://transback.transpoze.ai/diagram';
-  const RESTRUCTURE_API_BASE = 'http://65.0.249.245:6000';
+  const RESTRUCTURE_API_BASE = 'https://www.transgrade.transpoze.ai/restructure';
   // Add your new API endpoints here
-  const ANALYSIS_API_BASE = 'http://65.0.249.245:7000'; // Replace with your analysis API
-  const VALIDATION_API_BASE = 'http://65.0.249.245:7000'; // Replace with your validation API
-  const MCQ_API_BASE = 'http://65.0.249.245:5002';
+  const ANALYSIS_API_BASE = 'http://127.0.0.1:5018'; // Replace with your analysis API
+  const VALIDATION_API_BASE = 'https://www.transgrade.transpoze.ai/validation'; // Replace with your validation API
+  const MCQ_API_BASE = 'https://www.transgrade.transpoze.ai/MCQ';
 
   const steps = [
     { name: 'Upload PDF', icon: Upload },

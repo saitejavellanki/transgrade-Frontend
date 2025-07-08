@@ -5,17 +5,17 @@ import '../csstemplates/KeyOCRPage.css';
 // Centralized API URLs Configuration
 const API_URLS = {
   // Main API endpoints
-  CLASSES: 'https://www.transgrade.transpoze.ai/classes/',
-  SUBJECTS: 'https://www.transgrade.transpoze.ai/subjects/',
-  KEY_OCR: 'https://www.transgrade.transpoze.ai/key-ocr/',
+  CLASSES: 'https://transback.transpoze.ai/classes/',
+  SUBJECTS: 'https://transback.transpoze.ai/subjects/',
+  KEY_OCR: 'https://transback.transpoze.ai/key-ocr/',
   
   // PDF Processing endpoints
-  CONVERT_PDF: 'https://www.transgrade.transpoze.ai/app/convert-pdf',
-  EXTRACT_TEXT: 'https://www.transgrade.transpoze.ai/app/extract-text',
+  CONVERT_PDF: 'https://transback.transpoze.ai/app/convert-pdf',
+  EXTRACT_TEXT: 'https://transback.transpoze.ai/app/extract-text',
   
   // Additional API endpoints
-  CONTEXT_UPLOAD: 'http://127.0.0.1:5001/run/',
-  GENERATE_RUBRICS: 'http://localhost:5033/run/'
+  CONTEXT_UPLOAD: 'https://transback.transpoze.ai/context/run/',
+  GENERATE_RUBRICS: 'https://transback.transpoze.ai/rubric/run/'
 };
 
 const KeyOCRPage = () => {
