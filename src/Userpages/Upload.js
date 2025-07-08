@@ -24,7 +24,7 @@ const UploadPage = () => {
   const API_BASE = 'https://transback.transpoze.ai/app';
   const DJANGO_API_BASE = 'https://transback.transpoze.ai';
   const TEXTRACT_API_BASE = 'https://transback.transpoze.ai/textract';
-  const CORRECTION_API_BASE = 'http://65.0.249.245:5055';
+  const CORRECTION_API_BASE = 'https://www.transgrade.transpoze.ai/correction';
   const VLM = 'https://transback.transpoze.ai/diagram';
   const RESTRUCTURE_API_BASE = 'http://65.0.249.245:6000';
   // Add your new API endpoints here

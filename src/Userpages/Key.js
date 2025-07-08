@@ -5,13 +5,13 @@ import '../csstemplates/KeyOCRPage.css';
 // Centralized API URLs Configuration
 const API_URLS = {
   // Main API endpoints
-  CLASSES: 'http://3.7.37.42:8000/classes/',
-  SUBJECTS: 'http://3.7.37.42:8000/subjects/',
-  KEY_OCR: 'http://localhost:8000/key-ocr/',
+  CLASSES: 'https://www.transgrade.transpoze.ai/classes/',
+  SUBJECTS: 'https://www.transgrade.transpoze.ai/subjects/',
+  KEY_OCR: 'https://www.transgrade.transpoze.ai/key-ocr/',
   
   // PDF Processing endpoints
-  CONVERT_PDF: 'http://localhost:5015/convert-pdf',
-  EXTRACT_TEXT: 'http://localhost:5015/extract-text',
+  CONVERT_PDF: 'https://www.transgrade.transpoze.ai/app/convert-pdf',
+  EXTRACT_TEXT: 'https://www.transgrade.transpoze.ai/app/extract-text',
   
   // Additional API endpoints
   CONTEXT_UPLOAD: 'http://127.0.0.1:5001/run/',
