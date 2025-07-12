@@ -21,16 +21,16 @@ const UploadPage = () => {
   });
   const [error, setError] = useState('');
 
-  const API_BASE = 'https://transback.transpoze.ai/app';
-  const DJANGO_API_BASE = 'https://transback.transpoze.ai';
-  const TEXTRACT_API_BASE = 'https://transback.transpoze.ai/textract';
-  const CORRECTION_API_BASE = 'https://www.transgrade.transpoze.ai/correction';
-  const VLM = 'https://transback.transpoze.ai/diagram';
-  const RESTRUCTURE_API_BASE = 'https://www.transgrade.transpoze.ai/restructure';
-  // Add your new API endpoints here
-  const ANALYSIS_API_BASE = 'http://127.0.0.1:5018'; // Replace with your analysis API
-  const VALIDATION_API_BASE = 'https://www.transgrade.transpoze.ai/validation'; // Replace with your validation API
-  const MCQ_API_BASE = 'https://www.transgrade.transpoze.ai/MCQ';
+const API_BASE = 'https:transback.transpoze.ai/app';
+const DJANGO_API_BASE = 'https:transback.transpoze.ai';
+const TEXTRACT_API_BASE = 'https:transback.transpoze.ai/textract';
+const CORRECTION_API_BASE = 'https:transback.transpoze.ai/correction';
+const VLM = 'https:transback.transpoze.ai/diagram';
+const RESTRUCTURE_API_BASE = 'https:transback.transpoze.ai/restructure';
+const ANALYSIS_API_BASE = 'http://127.0.0.1:5018'; // Replace with your analysis API
+const VALIDATION_API_BASE = 'https:transback.transpoze.ai/validation'; // Replace with your validation API
+const MCQ_API_BASE = 'https:transback.transpoze.ai/MCQ';
+
 
   const steps = [
     { name: 'Upload PDF', icon: Upload },
