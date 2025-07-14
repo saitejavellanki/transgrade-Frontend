@@ -327,7 +327,7 @@ const MCQ_API_BASE = 'https://transback.transpoze.ai/MCQ';
 
     setResults(prev => ({ ...prev, ocrResults }));
     
-    // NEW: Process MCQ if toggle is enabled
+    // REMOVED: MCQ processing call from here
     // if (isMcq) {
     //   await processMcqData(scriptId);
     // }
@@ -369,124 +369,129 @@ const MCQ_API_BASE = 'https://transback.transpoze.ai/MCQ';
   };
 
   const pollTextractStatus = async (scriptId, ocrResults) => {
-    const maxAttempts = 60;
-    let attempts = 0;
-    
-    while (attempts < maxAttempts) {
-      try {
-        const statusData = await apiCall(`${TEXTRACT_API_BASE}/process-status/${scriptId}`);
+  const maxAttempts = 60;
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    try {
+      const statusData = await apiCall(`${TEXTRACT_API_BASE}/process-status/${scriptId}`);
+      
+      if (statusData.status === 'completed') {
+        const textractResults = await apiCall(`${TEXTRACT_API_BASE}/process-results/${scriptId}`);
+        setResults(prev => ({ ...prev, textractResults }));
         
-        if (statusData.status === 'completed') {
-          const textractResults = await apiCall(`${TEXTRACT_API_BASE}/process-results/${scriptId}`);
-          setResults(prev => ({ ...prev, textractResults }));
-
-          if(isMcq) {
-             await processMcqData(scriptId);
-          }
-
-          await saveOcrDataToDatabase(ocrResults, textractResults, scriptId);
-          return;
-        } else if (statusData.status === 'failed') {
-          console.error('Textract processing failed:', statusData.error);
-          await saveOcrDataToDatabase(ocrResults, null, scriptId);
-          return;
-        }
-        
-        if (statusData.status === 'processing') {
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          attempts++;
-          continue;
-        }
-      } catch (err) {
-        console.error('Error polling Textract status:', err);
+        // MOVE MCQ processing to AFTER textract results are obtained
+        // This ensures OCR data is saved before MCQ processing
+        await saveOcrDataToDatabase(ocrResults, textractResults, scriptId);
+        return;
+      } else if (statusData.status === 'failed') {
+        console.error('Textract processing failed:', statusData.error);
         await saveOcrDataToDatabase(ocrResults, null, scriptId);
         return;
       }
+      
+      if (statusData.status === 'processing') {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        attempts++;
+        continue;
+      }
+    } catch (err) {
+      console.error('Error polling Textract status:', err);
+      await saveOcrDataToDatabase(ocrResults, null, scriptId);
+      return;
     }
-    
-    console.warn('Textract processing timed out, saving regular OCR data only');
-    await saveOcrDataToDatabase(ocrResults, null, scriptId);
-  };
+  }
+  
+  console.warn('Textract processing timed out, saving regular OCR data only');
+  await saveOcrDataToDatabase(ocrResults, null, scriptId);
+};
 
   const saveOcrDataToDatabase = async (ocrResults, textractResults, scriptId) => {
-    setCurrentStep(5);
-    setProcessing(true);
+  setCurrentStep(5);
+  setProcessing(true);
 
-    try {
-      if (!scriptId || !ocrResults?.length) {
-        throw new Error('No script ID or OCR results available.');
+  try {
+    if (!scriptId || !ocrResults?.length) {
+      throw new Error('No script ID or OCR results available.');
+    }
+
+    const overallMetadata = {
+      textract_results: textractResults,
+      processing_timestamp: new Date().toISOString(),
+      student_info: {
+        name: selectedData.student.name,
+        roll_number: selectedData.student.roll_number,
+        class_name: selectedData.class.class_name
+      },
+      subject_info: {
+        name: selectedData.subject.subject_name,
+        class_name: selectedData.subject.class_name || selectedData.class.class_name
+      },
+      key_ocr_info: keyOcrData ? {
+        key_ocr_id: keyOcrData.key_ocr_id,
+        created_at: keyOcrData.created_at,
+        updated_at: keyOcrData.updated_at
+      } : null,
+      processing_metadata: {
+        total_pages: ocrResults.length,
+        upload_timestamp: new Date().toISOString(),
+        processing_status: 'completed',
+        has_answer_key: !!keyOcrData,
+        textract_processed: !!textractResults
       }
+    };
 
-      const overallMetadata = {
-        textract_results: textractResults,
-        processing_timestamp: new Date().toISOString(),
-        student_info: {
-          name: selectedData.student.name,
-          roll_number: selectedData.student.roll_number,
-          class_name: selectedData.class.class_name
+    const savedOcrData = [];
+    for (const ocrResult of ocrResults) {
+      const ocrData = {
+        script_id: scriptId,
+        page_number: ocrResult.page,
+        ocr_json: ocrResult.data,
+        structured_json: {
+          ...overallMetadata,
+          page_specific: {
+            page_number: ocrResult.page,
+            filename: ocrResult.filename,
+            imagePath: ocrResult.imagePath,
+            processing_timestamp: new Date().toISOString()
+          }
         },
-        subject_info: {
-          name: selectedData.subject.subject_name,
-          class_name: selectedData.subject.class_name || selectedData.class.class_name
-        },
-        key_ocr_info: keyOcrData ? {
-          key_ocr_id: keyOcrData.key_ocr_id,
-          created_at: keyOcrData.created_at,
-          updated_at: keyOcrData.updated_at
-        } : null,
-        processing_metadata: {
-          total_pages: ocrResults.length,
-          upload_timestamp: new Date().toISOString(),
-          processing_status: 'completed',
-          has_answer_key: !!keyOcrData,
-          textract_processed: !!textractResults
-        }
+        context: [
+          `Answer script OCR data - Page ${ocrResult.page}`,
+          `Student: ${selectedData.student.name} (${selectedData.student.roll_number})`,
+          `Subject: ${selectedData.subject.subject_name}`,
+          `Class: ${selectedData.class.class_name}`,
+          `File: ${ocrResult.filename}`,
+          keyOcrData ? 'Answer key available for processing' : 'No answer key available',
+          textractResults ? 'Textract processing completed' : 'Textract processing not available'
+        ].join(' - ')
       };
 
-      const savedOcrData = [];
-      for (const ocrResult of ocrResults) {
-        const ocrData = {
-          script_id: scriptId,
-          page_number: ocrResult.page,
-          ocr_json: ocrResult.data,
-          structured_json: {
-            ...overallMetadata,
-            page_specific: {
-              page_number: ocrResult.page,
-              filename: ocrResult.filename,
-              imagePath: ocrResult.imagePath,
-              processing_timestamp: new Date().toISOString()
-            }
-          },
-          context: [
-            `Answer script OCR data - Page ${ocrResult.page}`,
-            `Student: ${selectedData.student.name} (${selectedData.student.roll_number})`,
-            `Subject: ${selectedData.subject.subject_name}`,
-            `Class: ${selectedData.class.class_name}`,
-            `File: ${ocrResult.filename}`,
-            keyOcrData ? 'Answer key available for processing' : 'No answer key available',
-            textractResults ? 'Textract processing completed' : 'Textract processing not available'
-          ].join(' - ')
-        };
-
-        const savedOcr = await apiCall(`${DJANGO_API_BASE}/ocr/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ocrData)
-        });
-        savedOcrData.push(savedOcr);
-      }
-
-      setResults(prev => ({ ...prev, savedOcrData, ocrSaveSuccess: true }));
-      setCurrentStep(6);
-      await correctOcrData(selectedData.subject.subject_id, scriptId);
-      
-    } catch (err) {
-      setError('Database save failed: ' + err.message);
-    } finally {
-      setProcessing(false);
+      const savedOcr = await apiCall(`${DJANGO_API_BASE}/ocr/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ocrData)
+      });
+      savedOcrData.push(savedOcr);
     }
-  };
+
+    setResults(prev => ({ ...prev, savedOcrData, ocrSaveSuccess: true }));
+    
+    // ADD: MCQ processing AFTER OCR data is saved to database
+    if (isMcq) {
+      console.log('Starting MCQ processing after OCR data save...');
+      await processMcqData(scriptId);
+    }
+    
+    setCurrentStep(6);
+    await correctOcrData(selectedData.subject.subject_id, scriptId);
+    
+  } catch (err) {
+    setError('Database save failed: ' + err.message);
+  } finally {
+    setProcessing(false);
+  }
+};
 
   const correctOcrData = async (subjectId, scriptId) => {
     setCurrentStep(6);
