@@ -27,7 +27,7 @@ const TEXTRACT_API_BASE = 'https://transback.transpoze.ai/textract';
 const CORRECTION_API_BASE = 'https://transback.transpoze.ai/correction';
 const VLM = 'https://transback.transpoze.ai/diagram';
 const RESTRUCTURE_API_BASE = 'https://transback.transpoze.ai/restructure';
-const ANALYSIS_API_BASE = 'https://transback.transpoze.ai/semantic/'; // Replace with your analysis API
+const ANALYSIS_API_BASE = 'https://transback.transpoze.ai/semantic'; // Replace with your analysis API
 const VALIDATION_API_BASE = 'https://transback.transpoze.ai/validation'; // Replace with your validation API
 const MCQ_API_BASE = 'https://transback.transpoze.ai/MCQ';
 
