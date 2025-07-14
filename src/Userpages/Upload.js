@@ -328,9 +328,9 @@ const MCQ_API_BASE = 'https://transback.transpoze.ai/MCQ';
     setResults(prev => ({ ...prev, ocrResults }));
     
     // NEW: Process MCQ if toggle is enabled
-    if (isMcq) {
-      await processMcqData(scriptId);
-    }
+    // if (isMcq) {
+    //   await processMcqData(scriptId);
+    // }
     
     setCurrentStep(4);
     
@@ -379,6 +379,11 @@ const MCQ_API_BASE = 'https://transback.transpoze.ai/MCQ';
         if (statusData.status === 'completed') {
           const textractResults = await apiCall(`${TEXTRACT_API_BASE}/process-results/${scriptId}`);
           setResults(prev => ({ ...prev, textractResults }));
+
+          if(isMcq) {
+             await processMcqData(scriptId);
+          }
+
           await saveOcrDataToDatabase(ocrResults, textractResults, scriptId);
           return;
         } else if (statusData.status === 'failed') {
