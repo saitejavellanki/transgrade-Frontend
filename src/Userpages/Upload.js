@@ -262,16 +262,36 @@ const MCQ_API_BASE = 'https://transback.transpoze.ai/MCQ';
   setProcessing(true);
   
   try {
-    const mcqResult = await apiCall(`${MCQ_API_BASE}/run/${scriptId}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const url = `${MCQ_API_BASE}/run/${scriptId}`;
+    console.log('MCQ API URL:', url);
+    console.log('Script ID:', scriptId);
     
-    setResults(prev => ({ ...prev, mcqResult }));
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'MyApp/1.0',
+        'Accept': 'application/json'
+      }
+    });
+
+    console.log('MCQ Response Status:', response.status);
+    console.log('MCQ Response Headers:', [...response.headers.entries()]);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('MCQ API Error Response:', errorText);
+      throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+    }
+
+    const mcqResult = await response.json();
     console.log('MCQ processing completed:', mcqResult);
+    setResults(prev => ({ ...prev, mcqResult }));
   } catch (err) {
-    console.warn(`MCQ processing failed but continuing: ${err.message}`);
-    setError(`MCQ processing warning: ${err.message}`);
+    console.error('MCQ processing error:', err);
+    console.error('Error stack:', err.stack);
+    setError(`MCQ processing failed: ${err.message}`);
   } finally {
     setProcessing(false);
   }
