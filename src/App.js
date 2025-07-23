@@ -14,6 +14,8 @@ import KeyOCRPage from './Userpages/Key';
 // Import the new Navbar component
 import Navbar from './Components/Navbar';
 import CompactAnalyticsDashboard from './Userpages/Analytics';
+import StudentAnalyticsDashboard from './pages/Results';
+
 
 function App() {
   return (
@@ -30,6 +32,7 @@ function App() {
           <Route exact path="/upload" component={UploadPage} />
           <Route exact path="/key" component={KeyOCRPage} />
           <Route exact path="/Analytics" component={CompactAnalyticsDashboard} />
+          <Route exact path="/results" component={StudentAnalyticsDashboard} />
         </Switch>
       </div>
     </Router>
