@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, BarChart3, BookOpen, Award, TrendingUp, Clock, FileText, ArrowLeft } from 'lucide-react';
-import '../csstemplates/StudentDashboard.css';
+import './StudentDashboard.css';
 
 const API_BASE_URL = 'https://transback.transpoze.ai';
 
@@ -94,8 +94,19 @@ const StudentAnalyticsDashboard = () => {
           if (typeof score === 'number') {
             totalScore += score;
             validScores++;
+          } else if (typeof score === 'string' && !isNaN(parseFloat(score))) {
+            totalScore += parseFloat(score);
+            validScores++;
           }
         });
+      }
+      
+      // Also check analytics for scores
+      if (result.analytics && typeof result.analytics === 'object') {
+        if (result.analytics.average_final_score && typeof result.analytics.average_final_score === 'number') {
+          totalScore += result.analytics.average_final_score;
+          validScores++;
+        }
       }
     });
     
@@ -108,8 +119,12 @@ const StudentAnalyticsDashboard = () => {
     const latestResult = results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
     
     if (latestResult.graded && typeof latestResult.graded === 'object') {
-      const grades = Object.values(latestResult.graded);
-      return grades.length > 0 ? grades[0] : 'N/A';
+      const grades = Object.values(latestResult.graded).filter(grade => 
+        grade !== null && grade !== undefined && grade !== ''
+      );
+      if (grades.length > 0) {
+        return String(grades[0]);
+      }
     }
     
     return 'N/A';
@@ -263,10 +278,24 @@ const StudentAnalyticsDashboard = () => {
                           </div>
                           <div className="result-score">
                             <span className="score-value">
-                              {Object.values(result.scored || {})[0] || 'N/A'}
+                              {(() => {
+                                const score = Object.values(result.scored || {})[0];
+                                if (typeof score === 'number') return score;
+                                if (typeof score === 'string') return score;
+                                if (result.analytics && result.analytics.average_final_score) {
+                                  return result.analytics.average_final_score;
+                                }
+                                return 'N/A';
+                              })()}
                             </span>
                             <span className="grade-value">
-                              {Object.values(result.graded || {})[0] || 'N/A'}
+                              {(() => {
+                                const grade = Object.values(result.graded || {})[0];
+                                if (grade !== null && grade !== undefined && grade !== '') {
+                                  return String(grade);
+                                }
+                                return 'N/A';
+                              })()}
                             </span>
                           </div>
                         </div>
@@ -280,7 +309,26 @@ const StudentAnalyticsDashboard = () => {
                   <div className="detailed-analytics">
                     <h3 className="analytics-title">Detailed Analytics</h3>
                     <div className="analytics-data">
-                      <pre>{JSON.stringify(analytics.results[0].analytics, null, 2)}</pre>
+                      {(() => {
+                        const analyticsData = analytics.results[0].analytics;
+                        if (typeof analyticsData === 'object' && analyticsData !== null) {
+                          return (
+                            <div className="analytics-breakdown">
+                              {Object.entries(analyticsData).map(([key, value]) => (
+                                <div key={key} className="analytics-item">
+                                  <span className="analytics-key">
+                                    {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:
+                                  </span>
+                                  <span className="analytics-value">
+                                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return <pre>{JSON.stringify(analyticsData, null, 2)}</pre>;
+                      })()}
                     </div>
                   </div>
                 )}
