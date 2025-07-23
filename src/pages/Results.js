@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, BarChart3, BookOpen, Award, TrendingUp, Clock, FileText, ArrowLeft } from 'lucide-react';
-import './StudentDashboard.css';
+import { User, BarChart3, ArrowLeft } from 'lucide-react';
 
 const API_BASE_URL = 'https://transback.transpoze.ai';
 
@@ -48,8 +47,7 @@ const StudentAnalyticsDashboard = () => {
       
       setAnalytics({
         student: student,
-        results: matchingResults,
-        totalScripts: matchingResults.length
+        results: matchingResults
       });
     } catch (err) {
       setError('Failed to load analytics: ' + err.message);
@@ -68,92 +66,12 @@ const StudentAnalyticsDashboard = () => {
     setAnalytics(null);
   };
 
-  const renderAnalyticsCard = (title, value, icon, colorClass = 'blue') => (
-    <div className={`analytics-card ${colorClass}`}>
-      <div className="card-content">
-        <div className="card-text">
-          <p className="card-title">{title}</p>
-          <p className="card-value">{value}</p>
-        </div>
-        <div className="card-icon">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-
-  const calculateAverageScore = (results) => {
-    if (!results || results.length === 0) return '0';
-    
-    let totalScore = 0;
-    let validScores = 0;
-    
-    results.forEach(result => {
-      if (result.scored && typeof result.scored === 'object') {
-        Object.values(result.scored).forEach(score => {
-          if (typeof score === 'number') {
-            totalScore += score;
-            validScores++;
-          } else if (typeof score === 'string' && !isNaN(parseFloat(score))) {
-            totalScore += parseFloat(score);
-            validScores++;
-          }
-        });
-      }
-      
-      // Also check analytics for scores
-      if (result.analytics && typeof result.analytics === 'object') {
-        if (result.analytics.average_final_score && typeof result.analytics.average_final_score === 'number') {
-          totalScore += result.analytics.average_final_score;
-          validScores++;
-        }
-      }
-    });
-    
-    return validScores > 0 ? (totalScore / validScores).toFixed(1) : '0';
-  };
-
-  const getLatestGrade = (results) => {
-    if (!results || results.length === 0) return 'N/A';
-    
-    const latestResult = results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-    
-    if (latestResult.graded && typeof latestResult.graded === 'object') {
-      const grades = Object.values(latestResult.graded).filter(grade => 
-        grade !== null && grade !== undefined && grade !== ''
-      );
-      if (grades.length > 0) {
-        return String(grades[0]);
-      }
-    }
-    
-    return 'N/A';
-  };
-
-  const getSubjectsCount = (results) => {
-    if (!results || results.length === 0) return 0;
-    const subjects = new Set(results.map(result => result.subject_name));
-    return subjects.size;
-  };
-
-  const getPerformanceTrend = (results) => {
-    if (!results || results.length < 2) return 'stable';
-    
-    const sortedResults = results.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    const firstScore = Object.values(sortedResults[0].scored || {})[0] || 0;
-    const lastScore = Object.values(sortedResults[sortedResults.length - 1].scored || {})[0] || 0;
-    
-    if (lastScore > firstScore) return 'improving';
-    if (lastScore < firstScore) return 'declining';
-    return 'stable';
-  };
-
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-content">
-          <div className="spinner"></div>
-          <p>Loading students...</p>
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading students...</p>
         </div>
       </div>
     );
@@ -161,11 +79,14 @@ const StudentAnalyticsDashboard = () => {
 
   if (error) {
     return (
-      <div className="error-container">
-        <div className="error-content">
-          <div className="error-icon">⚠️</div>
-          <p className="error-message">{error}</p>
-          <button onClick={() => window.location.reload()} className="retry-button">
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="text-red-500 text-4xl mb-4">⚠️</div>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
             Retry
           </button>
         </div>
@@ -174,168 +95,104 @@ const StudentAnalyticsDashboard = () => {
   }
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-content">
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="header-card">
-          <h1 className="header-title">
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
             <BarChart3 size={32} />
             Student Analytics Dashboard
           </h1>
-          <p className="header-subtitle">
-            {selectedStudent ? `Analytics for ${selectedStudent.name}` : `Total Students: ${students.length}`}
+          <p className="text-gray-600 mt-2">
+            {selectedStudent ? `Raw Analytics for ${selectedStudent.name}` : `Total Students: ${students.length}`}
           </p>
         </div>
 
         {!selectedStudent ? (
           /* Students List */
-          <div className="students-grid">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {students.map((student) => (
               <div
                 key={student.student_id}
-                className="student-card"
+                className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => handleStudentClick(student)}
               >
-                <div className="student-avatar">
-                  <User size={24} />
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <User size={24} className="text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-gray-900">{student.name}</h3>
+                    <p className="text-sm text-gray-600">Roll: {student.roll_number}</p>
+                    <p className="text-sm text-gray-600">Class: {student.class_name}</p>
+                  </div>
+                  <div className="text-gray-400">→</div>
                 </div>
-                <div className="student-info">
-                  <h3 className="student-name">{student.name}</h3>
-                  <p className="student-roll">Roll: {student.roll_number}</p>
-                  <p className="student-class">Class: {student.class_name}</p>
-                </div>
-                <div className="student-arrow">→</div>
               </div>
             ))}
           </div>
         ) : (
           /* Analytics View */
-          <div className="analytics-container">
-            <button onClick={handleBackClick} className="back-button">
+          <div>
+            <button 
+              onClick={handleBackClick} 
+              className="mb-6 flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
               <ArrowLeft size={20} />
               Back to Students
             </button>
 
             {analyticsLoading ? (
-              <div className="analytics-loading">
-                <div className="spinner"></div>
-                <p>Loading analytics...</p>
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading analytics...</p>
+                </div>
               </div>
             ) : analytics ? (
               <>
-                {/* Student Info Card */}
-                <div className="student-detail-card">
-                  <div className="student-detail-avatar">
-                    <User size={48} />
-                  </div>
-                  <div className="student-detail-info">
-                    <h2>{analytics.student.name}</h2>
-                    <p>Roll Number: {analytics.student.roll_number}</p>
-                    <p>Class: {analytics.student.class_name}</p>
+                {/* Student Info */}
+                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User size={32} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">{analytics.student.name}</h2>
+                      <p className="text-gray-600">Roll Number: {analytics.student.roll_number}</p>
+                      <p className="text-gray-600">Class: {analytics.student.class_name}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Analytics Cards */}
-                <div className="analytics-grid">
-                  {renderAnalyticsCard(
-                    'Total Scripts',
-                    analytics.totalScripts,
-                    <FileText size={24} />,
-                    'blue'
-                  )}
-                  {renderAnalyticsCard(
-                    'Average Score',
-                    calculateAverageScore(analytics.results),
-                    <Award size={24} />,
-                    'green'
-                  )}
-                  {renderAnalyticsCard(
-                    'Latest Grade',
-                    getLatestGrade(analytics.results),
-                    <BookOpen size={24} />,
-                    'purple'
-                  )}
-                  {renderAnalyticsCard(
-                    'Subjects',
-                    getSubjectsCount(analytics.results),
-                    <TrendingUp size={24} />,
-                    'orange'
-                  )}
-                </div>
-
-                {/* Recent Results */}
-                {analytics.results.length > 0 && (
-                  <div className="results-section">
-                    <h3 className="results-title">Recent Results</h3>
-                    <div className="results-list">
-                      {analytics.results.slice(0, 5).map((result, index) => (
-                        <div key={result.result_id} className="result-item">
-                          <div className="result-info">
-                            <h4>{result.subject_name}</h4>
-                            <p className="result-date">
-                              {new Date(result.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="result-score">
-                            <span className="score-value">
-                              {(() => {
-                                const score = Object.values(result.scored || {})[0];
-                                if (typeof score === 'number') return score;
-                                if (typeof score === 'string') return score;
-                                if (result.analytics && result.analytics.average_final_score) {
-                                  return result.analytics.average_final_score;
-                                }
-                                return 'N/A';
-                              })()}
-                            </span>
-                            <span className="grade-value">
-                              {(() => {
-                                const grade = Object.values(result.graded || {})[0];
-                                if (grade !== null && grade !== undefined && grade !== '') {
-                                  return String(grade);
-                                }
-                                return 'N/A';
-                              })()}
-                            </span>
+                {/* Raw Analytics Data */}
+                {analytics.results.length > 0 ? (
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Raw Analytics Data</h3>
+                    <div className="space-y-6">
+                      {analytics.results.map((result, index) => (
+                        <div key={result.result_id} className="border-b border-gray-200 pb-6 last:border-b-0">
+                          <h4 className="font-medium text-gray-900 mb-3">
+                            Result {index + 1} - {result.subject_name} ({new Date(result.created_at).toLocaleDateString()})
+                          </h4>
+                          <div className="bg-gray-50 rounded p-4">
+                            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono overflow-x-auto">
+                              {JSON.stringify(result, null, 2)}
+                            </pre>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* Analytics Data */}
-                {analytics.results.length > 0 && analytics.results[0].analytics && (
-                  <div className="detailed-analytics">
-                    <h3 className="analytics-title">Detailed Analytics</h3>
-                    <div className="analytics-data">
-                      {(() => {
-                        const analyticsData = analytics.results[0].analytics;
-                        if (typeof analyticsData === 'object' && analyticsData !== null) {
-                          return (
-                            <div className="analytics-breakdown">
-                              {Object.entries(analyticsData).map(([key, value]) => (
-                                <div key={key} className="analytics-item">
-                                  <span className="analytics-key">
-                                    {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:
-                                  </span>
-                                  <span className="analytics-value">
-                                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        }
-                        return <pre>{JSON.stringify(analyticsData, null, 2)}</pre>;
-                      })()}
-                    </div>
+                ) : (
+                  <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+                    <p className="text-gray-600">No analytics data available for this student.</p>
                   </div>
                 )}
               </>
             ) : (
-              <div className="no-data">
-                <p>No analytics data available for this student.</p>
+              <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+                <p className="text-gray-600">No analytics data available for this student.</p>
               </div>
             )}
           </div>
