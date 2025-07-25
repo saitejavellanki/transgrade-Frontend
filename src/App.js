@@ -15,6 +15,7 @@ import KeyOCRPage from './Userpages/Key';
 import Navbar from './Components/Navbar';
 import CompactAnalyticsDashboard from './Userpages/Analytics';
 import StudentAnalyticsDashboard from './pages/Results';
+import MathProcessingPage from './Userpages/Math';
 
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           <Route exact path="/key" component={KeyOCRPage} />
           <Route exact path="/Analytics" component={CompactAnalyticsDashboard} />
           <Route exact path="/results" component={StudentAnalyticsDashboard} />
+          <Route exact path="/math" component={MathProcessingPage} />
         </Switch>
       </div>
     </Router>
