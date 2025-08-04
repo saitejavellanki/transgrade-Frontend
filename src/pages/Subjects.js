@@ -26,11 +26,13 @@ const styles = `
   }
 
   .subjects-header h1 {
-    font-size: 48px;
-    font-weight: 600;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 52px;
+    font-weight: 700;
     color: #1d1d1f;
     margin-bottom: 12px;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+    font-style: italic;
   }
 
   .subjects-header p {
