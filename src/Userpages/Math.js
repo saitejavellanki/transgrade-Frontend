@@ -263,18 +263,78 @@ const MathProcessingPage = () => {
     setCurrentStep(3);
 
     try {
-      // Call mathfir convert-images API
-      const convertResponse = await fetch(`${MATHFIR_API_BASE}/convert-images/${scriptId}`, {
-        method: 'GET',
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-          'User-Agent': 'MyApp/1.0'
-        }
-      });
+      // Try POST method first (most common for API endpoints)
+      let convertResponse;
+      
+      try {
+        convertResponse = await fetch(`${MATHFIR_API_BASE}/convert-images/${scriptId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+            'User-Agent': 'MyApp/1.0'
+          },
+          body: JSON.stringify({ script_id: scriptId })
+        });
+      } catch (postError) {
+        console.log('POST failed, trying GET method:', postError.message);
+        
+        // If POST fails, try GET as fallback
+        convertResponse = await fetch(`${MATHFIR_API_BASE}/convert-images/${scriptId}`, {
+          method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'User-Agent': 'MyApp/1.0'
+          }
+        });
+      }
 
       if (!convertResponse.ok) {
         const errorText = await convertResponse.text();
-        throw new Error(`Convert Images API failed: HTTP ${convertResponse.status}: ${convertResponse.statusText} - ${errorText}`);
+        
+        // If we get 405, try alternative endpoints
+        if (convertResponse.status === 405) {
+          console.log('Method not allowed, trying alternative endpoint...');
+          
+          // Try different endpoint patterns
+          const alternativeEndpoints = [
+            `${MATHFIR_API_BASE}/convert-images`,
+            `${MATHFIR_API_BASE}/process/${scriptId}`,
+            `${MATHFIR_API_BASE}/convert/${scriptId}`
+          ];
+          
+          let alternativeSuccess = false;
+          
+          for (const endpoint of alternativeEndpoints) {
+            try {
+              const altResponse = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'ngrok-skip-browser-warning': 'true',
+                  'User-Agent': 'MyApp/1.0'
+                },
+                body: JSON.stringify({ script_id: scriptId })
+              });
+              
+              if (altResponse.ok) {
+                convertResponse = altResponse;
+                alternativeSuccess = true;
+                console.log(`Success with alternative endpoint: ${endpoint}`);
+                break;
+              }
+            } catch (altError) {
+              console.log(`Alternative endpoint ${endpoint} failed:`, altError.message);
+              continue;
+            }
+          }
+          
+          if (!alternativeSuccess) {
+            throw new Error(`All convert-images endpoints failed. Original error: HTTP ${convertResponse.status}: ${convertResponse.statusText} - ${errorText}`);
+          }
+        } else {
+          throw new Error(`Convert Images API failed: HTTP ${convertResponse.status}: ${convertResponse.statusText} - ${errorText}`);
+        }
       }
 
       const convertResult = await convertResponse.json();
@@ -294,13 +354,34 @@ const MathProcessingPage = () => {
     setCurrentStep(4);
 
     try {
-      const restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
-        method: 'GET',
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-          'User-Agent': 'MyApp/1.0'
-        }
-      });
+      // Try POST method first
+      let restructureResponse;
+      
+      try {
+        restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+            'User-Agent': 'MyApp/1.0'
+          },
+          body: JSON.stringify({ 
+            subject_id: selectedSubject,
+            script_id: scriptId 
+          })
+        });
+      } catch (postError) {
+        console.log('POST failed for restructure, trying GET method:', postError.message);
+        
+        // If POST fails, try GET as fallback
+        restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
+          method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'User-Agent': 'MyApp/1.0'
+          }
+        });
+      }
 
       if (!restructureResponse.ok) {
         const errorText = await restructureResponse.text();
