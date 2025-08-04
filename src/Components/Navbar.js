@@ -8,7 +8,8 @@ import {
   Key, 
   Menu, 
   X,
-  ChevronDown 
+  ChevronDown,
+  Calculator
 } from 'lucide-react';
 import '../csstemplates/Navbar.css';
 
@@ -77,6 +78,16 @@ const Navbar = () => {
             >
               <Key className="nav-icon" />
               <span>Key OCR</span>
+            </Link>
+
+            {/* Math Route */}
+            <Link 
+              to="/math" 
+              className={`nav-link ${isActive('/math') ? 'active' : ''}`}
+              onClick={() => setIsOpen(false)}
+            >
+              <Calculator className="nav-icon" />
+              <span>Math</span>
             </Link>
 
             {/* Admin Dropdown */}
