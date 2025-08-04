@@ -265,9 +265,8 @@ const MathProcessingPage = () => {
     try {
       // Call mathfir convert-images API
       const convertResponse = await fetch(`${MATHFIR_API_BASE}/convert-images/${scriptId}`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
           'User-Agent': 'MyApp/1.0'
         }
@@ -296,9 +295,8 @@ const MathProcessingPage = () => {
 
     try {
       const restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
           'User-Agent': 'MyApp/1.0'
         }
