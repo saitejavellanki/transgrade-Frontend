@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-// CSS styles for class-specific subjects management
+// Apple-inspired styles
 const styles = `
   * {
     margin: 0;
@@ -9,207 +9,246 @@ const styles = `
   }
 
   .subjects-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    background-color: #f5f5f7;
     min-height: 100vh;
-    padding: 20px;
+    padding: 40px 20px;
   }
 
   .subjects-container {
-    max-width: 1000px;
+    max-width: 900px;
     margin: 0 auto;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
   }
 
   .subjects-header {
-    background: linear-gradient(135deg, #16a085 0%, #2ecc71 100%);
-    color: white;
-    padding: 30px;
     text-align: center;
+    margin-bottom: 48px;
   }
 
   .subjects-header h1 {
-    font-size: 28px;
-    margin-bottom: 10px;
-    font-weight: 700;
+    font-size: 48px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
   }
 
   .subjects-header p {
-    font-size: 16px;
-    opacity: 0.9;
+    font-size: 21px;
+    color: #86868b;
+    font-weight: 400;
   }
 
   .subjects-content {
-    padding: 40px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
   }
 
-  .subjects-form-section {
-    background: #f8f9fa;
-    padding: 25px;
-    border-radius: 8px;
-    margin-bottom: 30px;
-    border-left: 4px solid #16a085;
+  .subjects-card {
+    background: white;
+    border-radius: 18px;
+    padding: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.04);
   }
 
   .subjects-form-title {
-    font-size: 18px;
+    font-size: 28px;
     font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 20px;
+    color: #1d1d1f;
+    margin-bottom: 24px;
   }
 
   .subjects-form-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
 
   .subjects-form-group {
-    flex: 1;
-    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
   }
 
   .subjects-form-group label {
-    display: block;
+    font-size: 17px;
+    font-weight: 500;
+    color: #1d1d1f;
     margin-bottom: 8px;
-    font-weight: 600;
-    color: #374151;
-    font-size: 14px;
   }
 
   .subjects-form-group input,
   .subjects-form-group select {
-    width: 100%;
-    padding: 12px 16px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: all 0.3s ease;
+    height: 44px;
+    padding: 0 16px;
+    border: 1.5px solid #d2d2d7;
+    border-radius: 12px;
+    font-size: 17px;
     background-color: white;
+    transition: all 0.2s ease;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .subjects-form-group select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 40px;
   }
 
   .subjects-form-group input:focus,
   .subjects-form-group select:focus {
     outline: none;
-    border-color: #16a085;
-    box-shadow: 0 0 0 3px rgba(22, 160, 133, 0.1);
+    border-color: #007aff;
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
   }
 
   .subjects-btn {
-    padding: 12px 24px;
-    background: linear-gradient(135deg, #16a085 0%, #2ecc71 100%);
+    height: 44px;
+    padding: 0 24px;
+    background: #007aff;
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    align-self: flex-start;
   }
 
   .subjects-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(22, 160, 133, 0.3);
+    background: #0056d6;
+    transform: translateY(-1px);
+  }
+
+  .subjects-btn:active {
+    transform: translateY(0);
   }
 
   .subjects-btn:disabled {
-    background: #9ca3af;
+    background: #d1d1d6;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
   }
 
   .subjects-loading {
-    display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid #ffffff;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
-    border-top-color: transparent;
-    animation: spin 1s linear infinite;
-    margin-right: 8px;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
   }
 
   @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
   }
 
   .subjects-message {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    font-size: 14px;
-    line-height: 1.5;
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 24px;
   }
 
   .subjects-message.success {
-    background-color: #dcfce7;
-    border: 1px solid #bbf7d0;
-    color: #166534;
+    background-color: #d1fadf;
+    color: #0d5520;
+    border: 1px solid #a7f3d0;
   }
 
   .subjects-message.error {
-    background-color: #fef2f2;
-    border: 1px solid #fecaca;
+    background-color: #fee2e2;
     color: #dc2626;
+    border: 1px solid #fecaca;
   }
 
-  .subjects-list-section {
-    margin-top: 30px;
+  .subjects-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .subjects-stat-card {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+  }
+
+  .subjects-stat-number {
+    font-size: 32px;
+    font-weight: 600;
+    color: #007aff;
+    margin-bottom: 4px;
+  }
+
+  .subjects-stat-label {
+    font-size: 15px;
+    color: #86868b;
+    font-weight: 400;
+  }
+
+  .subjects-list-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 20px;
   }
 
   .subjects-filter-section {
     margin-bottom: 20px;
-    display: flex;
-    gap: 15px;
-    align-items: center;
   }
 
   .subjects-filter-group {
-    flex: 1;
+    max-width: 300px;
   }
 
-  .subjects-list-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #ecf0f1;
-    padding-bottom: 10px;
+  .subjects-table-container {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.04);
   }
 
   .subjects-table {
     width: 100%;
     border-collapse: collapse;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .subjects-table th,
-  .subjects-table td {
-    padding: 15px 20px;
-    text-align: left;
-    border-bottom: 1px solid #ecf0f1;
   }
 
   .subjects-table th {
-    background: #34495e;
-    color: white;
+    background: #f5f5f7;
+    padding: 16px 20px;
+    text-align: left;
     font-weight: 600;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 15px;
+    color: #1d1d1f;
+    border-bottom: 1px solid #d2d2d7;
+  }
+
+  .subjects-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f5f5f7;
+    font-size: 17px;
+    color: #1d1d1f;
   }
 
   .subjects-table tr:hover {
-    background-color: #f8f9fa;
+    background-color: #fbfbfd;
   }
 
   .subjects-table tr:last-child td {
@@ -218,60 +257,47 @@ const styles = `
 
   .subjects-empty {
     text-align: center;
-    padding: 40px;
-    color: #6c757d;
-    font-style: italic;
-  }
-
-  .subjects-stats {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    gap: 15px;
-  }
-
-  .subjects-stat-card {
-    flex: 1;
-    background: linear-gradient(135deg, #16a085 0%, #2ecc71 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-  }
-
-  .subjects-stat-number {
-    font-size: 24px;
-    font-weight: bold;
-    margin-bottom: 5px;
-  }
-
-  .subjects-stat-label {
-    font-size: 14px;
-    opacity: 0.9;
+    padding: 48px 20px;
+    color: #86868b;
+    font-size: 17px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.04);
   }
 
   @media (max-width: 768px) {
-    .subjects-form-row {
-      flex-direction: column;
-      gap: 0;
+    .subjects-header h1 {
+      font-size: 36px;
     }
 
-    .subjects-filter-section {
-      flex-direction: column;
-      align-items: stretch;
+    .subjects-header p {
+      font-size: 19px;
+    }
+
+    .subjects-card {
+      padding: 24px;
+    }
+
+    .subjects-form-row {
+      grid-template-columns: 1fr;
+      gap: 16px;
     }
 
     .subjects-stats {
-      flex-direction: column;
+      grid-template-columns: 1fr;
+      gap: 12px;
     }
 
-    .subjects-table {
-      font-size: 14px;
+    .subjects-form-title,
+    .subjects-list-title {
+      font-size: 24px;
     }
 
     .subjects-table th,
     .subjects-table td {
-      padding: 10px 15px;
+      padding: 12px 16px;
+      font-size: 15px;
     }
   }
 `;
@@ -414,8 +440,8 @@ function SubjectsManagement() {
     <div className="subjects-body">
       <div className="subjects-container">
         <div className="subjects-header">
-          <h1>Class-Specific Subjects Management</h1>
-          <p>Add and manage subjects for specific classes</p>
+          <h1>Subjects</h1>
+          <p>Manage subjects for your classes</p>
         </div>
 
         <div className="subjects-content">
@@ -431,18 +457,18 @@ function SubjectsManagement() {
             </div>
           )}
 
-          <div className="subjects-form-section">
-            <h3 className="subjects-form-title">Add New Subject to Class</h3>
+          <div className="subjects-card">
+            <h3 className="subjects-form-title">Add Subject</h3>
             
             <div className="subjects-form-row">
               <div className="subjects-form-group">
-                <label htmlFor="classSelect">Select Class</label>
+                <label htmlFor="classSelect">Class</label>
                 <select
                   id="classSelect"
                   value={selectedClassId}
                   onChange={(e) => setSelectedClassId(e.target.value)}
                 >
-                  <option value="">Choose a class...</option>
+                  <option value="">Choose a class</option>
                   {classes.map((cls) => (
                     <option key={cls.class_id} value={cls.class_id}>
                       {cls.class_name}
@@ -459,7 +485,7 @@ function SubjectsManagement() {
                   value={subjectName}
                   onChange={(e) => setSubjectName(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Enter subject name (e.g., Mathematics, Physics)"
+                  placeholder="Mathematics, Physics, etc."
                 />
               </div>
             </div>
@@ -470,29 +496,29 @@ function SubjectsManagement() {
               disabled={loading}
             >
               {loading && <div className="subjects-loading"></div>}
-              {loading ? 'Adding...' : 'Add Subject to Class'}
+              {loading ? 'Adding...' : 'Add Subject'}
             </button>
           </div>
 
-          <div className="subjects-list-section">
-            <div className="subjects-stats">
-              <div className="subjects-stat-card">
-                <div className="subjects-stat-number">{getTotalSubjectsCount()}</div>
-                <div className="subjects-stat-label">Total Subjects</div>
-              </div>
-              <div className="subjects-stat-card">
-                <div className="subjects-stat-number">{getClassesWithSubjects()}</div>
-                <div className="subjects-stat-label">Classes with Subjects</div>
-              </div>
-              <div className="subjects-stat-card">
-                <div className="subjects-stat-number">{classes.length}</div>
-                <div className="subjects-stat-label">Total Classes</div>
-              </div>
+          <div className="subjects-stats">
+            <div className="subjects-stat-card">
+              <div className="subjects-stat-number">{getTotalSubjectsCount()}</div>
+              <div className="subjects-stat-label">Total Subjects</div>
             </div>
+            <div className="subjects-stat-card">
+              <div className="subjects-stat-number">{getClassesWithSubjects()}</div>
+              <div className="subjects-stat-label">Active Classes</div>
+            </div>
+            <div className="subjects-stat-card">
+              <div className="subjects-stat-number">{classes.length}</div>
+              <div className="subjects-stat-label">All Classes</div>
+            </div>
+          </div>
 
+          <div className="subjects-card">
             <div className="subjects-filter-section">
               <div className="subjects-filter-group">
-                <label htmlFor="filterClass">Filter by Class:</label>
+                <label htmlFor="filterClass">Filter by Class</label>
                 <select
                   id="filterClass"
                   value={filterClassId}
@@ -510,37 +536,39 @@ function SubjectsManagement() {
 
             <h3 className="subjects-list-title">
               {filterClassId 
-                ? `Subjects for ${classes.find(c => c.class_id == filterClassId)?.class_name || 'Selected Class'}`
+                ? `${classes.find(c => c.class_id == filterClassId)?.class_name || 'Selected Class'} Subjects`
                 : 'All Subjects'
               }
             </h3>
             
             {getFilteredSubjects().length > 0 ? (
-              <table className="subjects-table">
-                <thead>
-                  <tr>
-                    <th>Subject ID</th>
-                    <th>Subject Name</th>
-                    <th>Class Name</th>
-                    <th>Class ID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getFilteredSubjects().map((subject) => (
-                    <tr key={`${subject.subject_id}-${subject.class_id}`}>
-                      <td>{subject.subject_id}</td>
-                      <td>{subject.subject_name}</td>
-                      <td>{subject.class_name}</td>
-                      <td>{subject.class_id}</td>
+              <div className="subjects-table-container">
+                <table className="subjects-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Subject</th>
+                      <th>Class</th>
+                      <th>Class ID</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {getFilteredSubjects().map((subject) => (
+                      <tr key={`${subject.subject_id}-${subject.class_id}`}>
+                        <td>{subject.subject_id}</td>
+                        <td>{subject.subject_name}</td>
+                        <td>{subject.class_name}</td>
+                        <td>{subject.class_id}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className="subjects-empty">
                 {filterClassId 
-                  ? 'No subjects found for the selected class. Add some subjects above!'
-                  : 'No subjects found. Add your first subject above!'
+                  ? 'No subjects found for this class'
+                  : 'No subjects yet. Add your first subject above.'
                 }
               </div>
             )}
