@@ -732,7 +732,7 @@ const KeyOCRPage = () => {
 
   return (
     <div className="keyocr-container">
-      <h1 className="main-title">Key OCR Processing</h1>
+      <h1 className="main-title">Question Paper Upload.</h1>
 
       <StepIndicator currentStep={step} />
 
