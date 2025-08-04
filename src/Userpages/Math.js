@@ -351,55 +351,35 @@ const MathProcessingPage = () => {
   };
 
   const restructureData = async (scriptId) => {
-    setCurrentStep(4);
+  setCurrentStep(4);
 
-    try {
-      // Try POST method first
-      let restructureResponse;
-      
-      try {
-        restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-            'User-Agent': 'MyApp/1.0'
-          },
-          body: JSON.stringify({ 
-            subject_id: selectedSubject,
-            script_id: scriptId 
-          })
-        });
-      } catch (postError) {
-        console.log('POST failed for restructure, trying GET method:', postError.message);
-        
-        // If POST fails, try GET as fallback
-        restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
-          method: 'GET',
-          headers: {
-            'ngrok-skip-browser-warning': 'true',
-            'User-Agent': 'MyApp/1.0'
-          }
-        });
+  try {
+    // MathRes restructure API only accepts GET requests
+    const restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
+      method: 'GET',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'MyApp/1.0'
       }
+    });
 
-      if (!restructureResponse.ok) {
-        const errorText = await restructureResponse.text();
-        throw new Error(`Restructure API failed: HTTP ${restructureResponse.status}: ${restructureResponse.statusText} - ${errorText}`);
-      }
-
-      const restructureResult = await restructureResponse.json();
-      console.log('Restructure Result:', restructureResult);
-
-      // Processing complete
-      setProcessing(false);
-      alert('Processing completed successfully!');
-      
-    } catch (err) {
-      setError(`Data restructuring failed: ${err.message}`);
-      setProcessing(false);
+    if (!restructureResponse.ok) {
+      const errorText = await restructureResponse.text();
+      throw new Error(`Restructure API failed: HTTP ${restructureResponse.status}: ${restructureResponse.statusText} - ${errorText}`);
     }
-  };
+
+    const restructureResult = await restructureResponse.json();
+    console.log('Restructure Result:', restructureResult);
+
+    // Processing complete
+    setProcessing(false);
+    alert('Processing completed successfully!');
+    
+  } catch (err) {
+    setError(`Data restructuring failed: ${err.message}`);
+    setProcessing(false);
+  }
+};
 
   const resetForm = () => {
     setSelectedClass('');
