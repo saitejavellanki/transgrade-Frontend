@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, User, BookOpen, GraduationCap, ArrowLeft, Search, Loader2, CheckCircle, AlertCircle, Download, RefreshCw, BarChart, FileText, Upload, Image } from 'lucide-react';
-import '../csstemplates/MathProcessingPage.css';
+import { Calculator, User, BookOpen, GraduationCap, ArrowLeft, Upload, Loader2, CheckCircle, AlertCircle, FileText, Image } from 'lucide-react';
 
 const MathProcessingPage = () => {
   const [classes, setClasses] = useState([]);
@@ -10,27 +9,25 @@ const MathProcessingPage = () => {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedStudent, setSelectedStudent] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [results, setResults] = useState(null);
   const [error, setError] = useState('');
-  const [scripts, setScripts] = useState([]);
-  const [selectedScript, setSelectedScript] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
   const [pdfFile, setPdfFile] = useState(null);
   const [uploadResults, setUploadResults] = useState({
     images: [],
     scriptId: null
   });
-  const [processingMode, setProcessingMode] = useState('existing'); // 'existing' or 'upload'
 
   const DJANGO_API_BASE = 'https://transback.transpoze.ai';
-  const MATH_API_BASE = 'https://transback.transpoze.ai/math';
-  const API_BASE = 'https://transback.transpoze.ai/app';
+  const MATHFIR_API_BASE = 'https://transback.transpoze.ai/mathfir';
+  const MATHRES_API_BASE = 'https://transback.transpoze.ai/mathres';
+  const APP_API_BASE = 'https://transback.transpoze.ai/app';
 
   const steps = [
     { name: 'Upload PDF', icon: Upload },
     { name: 'Convert to Images', icon: Image },
     { name: 'Save Images', icon: CheckCircle },
-    { name: 'Process Math Data', icon: Calculator }
+    { name: 'Convert Images', icon: Calculator },
+    { name: 'Restructure Data', icon: FileText }
   ];
 
   useEffect(() => {
@@ -73,27 +70,13 @@ const MathProcessingPage = () => {
     }
   };
 
-  const fetchScripts = async (studentId, subjectId) => {
-    try {
-      const response = await fetch(`${DJANGO_API_BASE}/scripts/?student_id=${studentId}&subject_id=${subjectId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setScripts(data);
-      }
-    } catch (err) {
-      setError('Failed to load scripts');
-    }
-  };
-
   const handleClassChange = (e) => {
     const classId = e.target.value;
     setSelectedClass(classId);
     setSelectedSubject('');
     setSelectedStudent('');
-    setSelectedScript('');
     setSubjects([]);
     setStudents([]);
-    setScripts([]);
     
     if (classId) {
       fetchSubjects(classId);
@@ -102,29 +85,11 @@ const MathProcessingPage = () => {
   };
 
   const handleSubjectChange = (e) => {
-    const subjectId = e.target.value;
-    setSelectedSubject(subjectId);
-    setSelectedScript('');
-    setScripts([]);
-    
-    if (subjectId && selectedStudent && processingMode === 'existing') {
-      fetchScripts(selectedStudent, subjectId);
-    }
+    setSelectedSubject(e.target.value);
   };
 
   const handleStudentChange = (e) => {
-    const studentId = e.target.value;
-    setSelectedStudent(studentId);
-    setSelectedScript('');
-    setScripts([]);
-    
-    if (studentId && selectedSubject && processingMode === 'existing') {
-      fetchScripts(studentId, selectedSubject);
-    }
-  };
-
-  const handleScriptChange = (e) => {
-    setSelectedScript(e.target.value);
+    setSelectedStudent(e.target.value);
   };
 
   const handleFileUpload = (event) => {
@@ -202,21 +167,19 @@ const MathProcessingPage = () => {
     try {
       const formData = new FormData();
       formData.append('pdf', pdfFile);
-      const data = await apiCall(`${API_BASE}/convert-pdf`, { method: 'POST', body: formData });
+      const data = await apiCall(`${APP_API_BASE}/convert-pdf`, { method: 'POST', body: formData });
       
       setUploadResults(prev => ({ ...prev, images: data.images }));
       setCurrentStep(2);
       await saveImagesToDatabase(data.images);
     } catch (err) {
       setError('Network error: ' + err.message);
-    } finally {
       setProcessing(false);
     }
   };
 
   const saveImagesToDatabase = async (imageData) => {
     setCurrentStep(2);
-    setProcessing(true);
 
     try {
       // Create or find script record
@@ -285,36 +248,24 @@ const MathProcessingPage = () => {
       }
 
       setUploadResults(prev => ({ ...prev, savedImages }));
-      setCurrentStep(3);
       
-      // Now process with math API
-      await processMathData(selectedSubject, scriptId);
+      // Now call the two required APIs
+      setCurrentStep(3);
+      await convertImages(scriptId);
       
     } catch (err) {
       setError('Failed to save images to database: ' + err.message);
-    } finally {
       setProcessing(false);
     }
   };
 
-  const processMathData = async (subjectId = null, scriptId = null) => {
-    const finalSubjectId = subjectId || selectedSubject;
-    const finalScriptId = scriptId || selectedScript;
-
-    if (!finalSubjectId || !finalScriptId) {
-      setError('Please select both subject and script');
-      return;
-    }
-
-    if (processingMode === 'existing') {
-      setProcessing(true);
-    }
-    setError('');
-    setResults(null);
+  const convertImages = async (scriptId) => {
+    setCurrentStep(3);
 
     try {
-      const response = await fetch(`${MATH_API_BASE}/${finalScriptId}`, {
-        method: 'GET',
+      // Call mathfir convert-images API
+      const convertResponse = await fetch(`${MATHFIR_API_BASE}/convert-images/${scriptId}`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
@@ -322,34 +273,52 @@ const MathProcessingPage = () => {
         }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      if (!convertResponse.ok) {
+        const errorText = await convertResponse.text();
+        throw new Error(`Convert Images API failed: HTTP ${convertResponse.status}: ${convertResponse.statusText} - ${errorText}`);
       }
 
-      const result = await response.json();
-      setResults(result);
+      const convertResult = await convertResponse.json();
+      console.log('Convert Images Result:', convertResult);
+
+      // Now call restructure API
+      setCurrentStep(4);
+      await restructureData(scriptId);
+      
     } catch (err) {
-      setError(`Math processing failed: ${err.message}`);
-    } finally {
-      if (processingMode === 'existing') {
-        setProcessing(false);
-      }
+      setError(`Image conversion failed: ${err.message}`);
+      setProcessing(false);
     }
   };
 
-  const downloadResults = () => {
-    if (results) {
-      const selectedStudentData = students.find(s => s.student_id === parseInt(selectedStudent));
-      const selectedSubjectData = subjects.find(s => s.subject_id === parseInt(selectedSubject));
+  const restructureData = async (scriptId) => {
+    setCurrentStep(4);
+
+    try {
+      const restructureResponse = await fetch(`${MATHRES_API_BASE}/restructure/${selectedSubject}/${scriptId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'User-Agent': 'MyApp/1.0'
+        }
+      });
+
+      if (!restructureResponse.ok) {
+        const errorText = await restructureResponse.text();
+        throw new Error(`Restructure API failed: HTTP ${restructureResponse.status}: ${restructureResponse.statusText} - ${errorText}`);
+      }
+
+      const restructureResult = await restructureResponse.json();
+      console.log('Restructure Result:', restructureResult);
+
+      // Processing complete
+      setProcessing(false);
+      alert('Processing completed successfully!');
       
-      const filename = `math_results_${selectedStudentData?.name || 'student'}_${selectedSubjectData?.subject_name || 'subject'}_${Date.now()}.json`;
-      const dataStr = JSON.stringify(results, null, 2);
-      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      const linkElement = document.createElement('a');
-      linkElement.setAttribute('href', dataUri);
-      linkElement.setAttribute('download', filename);
-      linkElement.click();
+    } catch (err) {
+      setError(`Data restructuring failed: ${err.message}`);
+      setProcessing(false);
     }
   };
 
@@ -357,394 +326,414 @@ const MathProcessingPage = () => {
     setSelectedClass('');
     setSelectedSubject('');
     setSelectedStudent('');
-    setSelectedScript('');
     setPdfFile(null);
     setSubjects([]);
     setStudents([]);
-    setScripts([]);
-    setResults(null);
     setError('');
     setCurrentStep(0);
     setUploadResults({ images: [], scriptId: null });
-    setProcessingMode('existing');
   };
 
   const selectedClassData = classes.find(c => c.class_id === parseInt(selectedClass));
   const selectedSubjectData = subjects.find(s => s.subject_id === parseInt(selectedSubject));
   const selectedStudentData = students.find(s => s.student_id === parseInt(selectedStudent));
-  const selectedScriptData = scripts.find(s => s.script_id === parseInt(selectedScript));
 
   return (
-    <div className="math-page">
-      <header className="math-header">
-        <div className="container">
-          <button onClick={() => window.history.back()} className="back-button">
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'system-ui, sans-serif' }}>
+      <header style={{ backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '1rem 0' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem' }}>
+          <button 
+            onClick={() => window.history.back()} 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer',
+              color: '#4f46e5',
+              fontSize: '1rem',
+              marginBottom: '1rem'
+            }}
+          >
             <ArrowLeft size={20} />
             Back to Dashboard
           </button>
           
-          <div className="math-title-section">
-            <h1 className="math-title">Math Processing Center</h1>
-            <p className="math-subtitle">Process mathematical content using advanced AI algorithms</p>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: '#1f2937' }}>
+              Math Processing Center
+            </h1>
+            <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280' }}>
+              Upload PDF and process mathematical content
+            </p>
           </div>
         </div>
       </header>
 
-      <main className="math-main">
-        <div className="container">
-          {/* Progress Steps - Only show when upload mode */}
-          {processingMode === 'upload' && (
-            <div className="progress-steps">
-              {steps.map((step, index) => {
-                const Icon = step.icon;
-                const isActive = currentStep === index;
-                const isCompleted = currentStep > index;
-                
-                return (
-                  <div key={index} className={`step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
-                    <div className="step-icon">
-                      {isCompleted ? <CheckCircle size={24} /> : <Icon size={24} />}
-                    </div>
-                    <span className="step-name">{step.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      <main style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1rem' }}>
+        {/* Progress Steps */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', padding: '2rem', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = currentStep === index;
+            const isCompleted = currentStep > index;
+            
+            return (
+              <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isCompleted ? '#10b981' : isActive ? '#4f46e5' : '#e5e7eb',
+                  color: isCompleted || isActive ? '#fff' : '#6b7280',
+                  marginBottom: '0.5rem'
+                }}>
+                  {isCompleted ? <CheckCircle size={24} /> : <Icon size={24} />}
+                </div>
+                <span style={{ 
+                  fontSize: '0.875rem', 
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  color: isCompleted ? '#10b981' : isActive ? '#4f46e5' : '#6b7280'
+                }}>
+                  {step.name}
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
-          {error && (
-            <div className="error-message">
-              <AlertCircle size={20} />
-              <span>{error}</span>
-            </div>
-          )}
+        {error && (
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            padding: '1rem', 
+            backgroundColor: '#fef2f2', 
+            border: '1px solid #fecaca', 
+            borderRadius: '8px', 
+            color: '#dc2626',
+            marginBottom: '2rem'
+          }}>
+            <AlertCircle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
 
-          {/* Processing Mode Selection */}
-          <div className="mode-selection">
-            <h2 className="section-title">Choose Processing Mode</h2>
-            <div className="mode-buttons">
-              <button 
-                className={`mode-btn ${processingMode === 'existing' ? 'active' : ''}`}
-                onClick={() => {
-                  setProcessingMode('existing');
-                  setPdfFile(null);
-                  setCurrentStep(0);
-                  setUploadResults({ images: [], scriptId: null });
+        <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+          <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>
+            Select Class, Subject & Student
+          </h2>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div>
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                marginBottom: '0.5rem', 
+                fontWeight: '500', 
+                color: '#374151' 
+              }}>
+                <GraduationCap size={18} />
+                Select Class
+              </label>
+              <select 
+                style={{ 
+                  width: '100%', 
+                  padding: '0.75rem', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px', 
+                  fontSize: '1rem' 
                 }}
+                value={selectedClass} 
+                onChange={handleClassChange}
               >
-                <FileText size={20} />
-                <span>Use Existing Script</span>
-                <small>Process an already uploaded script</small>
-              </button>
-              <button 
-                className={`mode-btn ${processingMode === 'upload' ? 'active' : ''}`}
-                onClick={() => {
-                  setProcessingMode('upload');
-                  setSelectedScript('');
-                  setScripts([]);
+                <option value="">Choose a class...</option>
+                {classes.map(cls => (
+                  <option key={cls.class_id} value={cls.class_id}>
+                    {cls.class_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                marginBottom: '0.5rem', 
+                fontWeight: '500', 
+                color: '#374151' 
+              }}>
+                <BookOpen size={18} />
+                Select Subject
+              </label>
+              <select 
+                style={{ 
+                  width: '100%', 
+                  padding: '0.75rem', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px', 
+                  fontSize: '1rem' 
                 }}
+                value={selectedSubject} 
+                onChange={handleSubjectChange}
+                disabled={!selectedClass}
               >
-                <Upload size={20} />
-                <span>Upload New PDF</span>
-                <small>Upload and process a new PDF document</small>
-              </button>
+                <option value="">Choose a subject...</option>
+                {subjects.map(subject => (
+                  <option key={subject.subject_id} value={subject.subject_id}>
+                    {subject.subject_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                marginBottom: '0.5rem', 
+                fontWeight: '500', 
+                color: '#374151' 
+              }}>
+                <User size={18} />
+                Select Student
+              </label>
+              <select 
+                style={{ 
+                  width: '100%', 
+                  padding: '0.75rem', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px', 
+                  fontSize: '1rem' 
+                }}
+                value={selectedStudent} 
+                onChange={handleStudentChange}
+                disabled={!selectedClass}
+              >
+                <option value="">Choose a student...</option>
+                {students.map(student => (
+                  <option key={student.student_id} value={student.student_id}>
+                    {student.name} ({student.roll_number})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div className="selection-section">
-            <h2 className="section-title">
-              <Search size={24} />
-              Select Class, Subject & Student
-            </h2>
-            
-            <div className="selection-grid">
-              <div className="form-group">
-                <label className="form-label">
-                  <GraduationCap size={18} />
-                  Select Class
-                </label>
-                <select 
-                  className="form-select" 
-                  value={selectedClass} 
-                  onChange={handleClassChange}
-                >
-                  <option value="">Choose a class...</option>
-                  {classes.map(cls => (
-                    <option key={cls.class_id} value={cls.class_id}>
-                      {cls.class_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  <BookOpen size={18} />
-                  Select Subject
-                </label>
-                <select 
-                  className="form-select" 
-                  value={selectedSubject} 
-                  onChange={handleSubjectChange}
-                  disabled={!selectedClass}
-                >
-                  <option value="">Choose a subject...</option>
-                  {subjects.map(subject => (
-                    <option key={subject.subject_id} value={subject.subject_id}>
-                      {subject.subject_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  <User size={18} />
-                  Select Student
-                </label>
-                <select 
-                  className="form-select" 
-                  value={selectedStudent} 
-                  onChange={handleStudentChange}
-                  disabled={!selectedClass}
-                >
-                  <option value="">Choose a student...</option>
-                  {students.map(student => (
-                    <option key={student.student_id} value={student.student_id}>
-                      {student.name} ({student.roll_number})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Script Selection - Only for existing mode */}
-              {processingMode === 'existing' && (
-                <div className="form-group">
-                  <label className="form-label">
-                    <FileText size={18} />
-                    Select Script
-                  </label>
-                  <select 
-                    className="form-select" 
-                    value={selectedScript} 
-                    onChange={handleScriptChange}
-                    disabled={!selectedStudent || !selectedSubject}
-                  >
-                    <option value="">Choose a script...</option>
-                    {scripts.map(script => (
-                      <option key={script.script_id} value={script.script_id}>
-                        Script #{script.script_id} - {new Date(script.created_at).toLocaleDateString()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {selectedClassData && selectedSubjectData && selectedStudentData && (
-              <div className="selection-info">
-                <h3>Selected Information:</h3>
-                <div className="selection-item">
+          {selectedClassData && selectedSubjectData && selectedStudentData && (
+            <div style={{ 
+              padding: '1rem', 
+              backgroundColor: '#f3f4f6', 
+              borderRadius: '6px', 
+              marginBottom: '2rem' 
+            }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', fontWeight: '600' }}>Selected Information:</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <GraduationCap size={16} />
                   <span>Class: {selectedClassData.class_name}</span>
                 </div>
-                <div className="selection-item">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <BookOpen size={16} />
                   <span>Subject: {selectedSubjectData.subject_name}</span>
                 </div>
-                <div className="selection-item">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <User size={16} />
                   <span>Student: {selectedStudentData.name} ({selectedStudentData.roll_number})</span>
                 </div>
-                {selectedScriptData && processingMode === 'existing' && (
-                  <div className="selection-item">
+                {uploadResults.scriptId && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <FileText size={16} />
-                    <span>Script: #{selectedScriptData.script_id} - {new Date(selectedScriptData.created_at).toLocaleDateString()}</span>
+                    <span>Script ID: {uploadResults.scriptId}</span>
                   </div>
                 )}
-                {processingMode === 'upload' && uploadResults.scriptId && (
-                  <div className="selection-item">
-                    <FileText size={16} />
-                    <span>New Script ID: {uploadResults.scriptId}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Upload Section - Only for upload mode */}
-            {processingMode === 'upload' && selectedStudent && selectedSubject && currentStep === 0 && (
-              <div className="upload-section">
-                <div className="upload-card">
-                  <Upload size={48} className="upload-icon" />
-                  <h3>Upload Math Problem PDF</h3>
-                  <p>Select the PDF file containing mathematical problems for processing</p>
-                  
-                  <label className="file-input-label">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleFileUpload}
-                      className="file-input"
-                    />
-                    Choose PDF File
-                  </label>
-                  
-                  {pdfFile && (
-                    <div className="file-info">
-                      <FileText size={20} />
-                      <span>{pdfFile.name}</span>
-                      <span className="file-size">({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-                    </div>
-                  )}
-                </div>
-                
-                {pdfFile && (
-                  <button className="process-btn" onClick={convertPdfToImages}>
-                    <Upload size={20} />
-                    Start Processing
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Process Button - For existing scripts */}
-            {processingMode === 'existing' && selectedSubject && selectedScript && (
-              <button 
-                className="process-btn" 
-                onClick={() => processMathData()}
-                disabled={processing}
-              >
-                <Calculator size={20} />
-                {processing ? 'Processing...' : 'Process Math Data'}
-              </button>
-            )}
-          </div>
-
-          {processing && (
-            <div className="processing-section">
-              <div className="processing-card">
-                <Loader2 size={48} className="spinner" />
-                <h2>
-                  {currentStep === 1 && "Converting PDF to images..."}
-                  {currentStep === 2 && "Saving images to database..."}
-                  {currentStep === 3 && "Processing Mathematical Content"}
-                  {processingMode === 'existing' && "Processing Mathematical Content"}
-                </h2>
-                <p>
-                  {currentStep === 1 && "Converting your PDF document into high-quality images for processing..."}
-                  {currentStep === 2 && "Saving processed images to the database and creating script record..."}
-                  {(currentStep === 3 || processingMode === 'existing') && "Analyzing mathematical expressions and solving problems using AI algorithms..."}
-                </p>
-                <div className="processing-info">
-                  <span>Subject ID: {selectedSubject}</span>
-                  {processingMode === 'upload' && uploadResults.scriptId && <span>Script ID: {uploadResults.scriptId}</span>}
-                  {processingMode === 'existing' && <span>Script ID: {selectedScript}</span>}
-                  <span>Student: {selectedStudentData?.name}</span>
-                  {processingMode === 'upload' && uploadResults.images.length > 0 && <span>Images: {uploadResults.images.length} pages</span>}
-                </div>
               </div>
             </div>
           )}
 
-          {results && (
-            <div className="results-section">
-              <div className="results-header">
-                <h2>Math Processing Complete</h2>
-                <div className="results-summary">
-                  <p>Mathematical content has been successfully processed for:</p>
-                  <div className="summary-details">
-                    <span><strong>Student:</strong> {selectedStudentData?.name}</span>
-                    <span><strong>Subject:</strong> {selectedSubjectData?.subject_name}</span>
-                    <span><strong>Script ID:</strong> {processingMode === 'upload' ? uploadResults.scriptId : selectedScript}</span>
-                    <span><strong>Processed At:</strong> {new Date().toLocaleString()}</span>
-                    {processingMode === 'upload' && <span><strong>Pages Uploaded:</strong> {uploadResults.images.length}</span>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Show uploaded images if in upload mode */}
-              {processingMode === 'upload' && uploadResults.images.length > 0 && (
-                <div className="uploaded-images">
-                  <h3>Uploaded Images</h3>
-                  <div className="images-grid">
-                    {uploadResults.images.slice(0, 4).map((image, index) => (
-                      <div key={index} className="image-preview">
-                        <img
-                          src={`data:image/jpeg;base64,${image.data}`}
-                          alt={`Page ${index + 1}`}
-                          className="preview-image"
-                        />
-                        <span className="image-label">Page {index + 1}</span>
-                      </div>
-                    ))}
-                    {uploadResults.images.length > 4 && (
-                      <div className="image-preview more-images">
-                        <span>+{uploadResults.images.length - 4} more</span>
-                      </div>
-                    )}
-                  </div>
+          {/* Upload Section */}
+          {selectedStudent && selectedSubject && currentStep === 0 && (
+            <div style={{ textAlign: 'center', padding: '2rem', border: '2px dashed #d1d5db', borderRadius: '8px' }}>
+              <Upload size={48} style={{ color: '#6b7280', marginBottom: '1rem' }} />
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '600' }}>Upload Math Problem PDF</h3>
+              <p style={{ margin: '0 0 1.5rem 0', color: '#6b7280' }}>Select the PDF file containing mathematical problems for processing</p>
+              
+              <label style={{
+                display: 'inline-block',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#4f46e5',
+                color: '#fff',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: '500'
+              }}>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+                Choose PDF File
+              </label>
+              
+              {pdfFile && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '0.5rem', 
+                  marginTop: '1rem' 
+                }}>
+                  <FileText size={20} />
+                  <span>{pdfFile.name}</span>
+                  <span style={{ color: '#6b7280' }}>({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)</span>
                 </div>
               )}
-
-              <div className="results-content">
-                <div className="result-card">
-                  <div className="result-header">
-                    <BarChart size={24} />
-                    <h3>Processing Results</h3>
-                    <span className="result-status success">Completed</span>
-                  </div>
-                  <div className="result-body">
-                    <div className="result-preview">
-                      <pre className="json-preview">
-                        {JSON.stringify(results, null, 2)}
-                      </pre>
-                    </div>
-                    <div className="result-stats">
-                      {results.total_problems && (
-                        <div className="stat-item">
-                          <span className="stat-label">Problems Analyzed:</span>
-                          <span className="stat-value">{results.total_problems}</span>
-                        </div>
-                      )}
-                      {results.solutions_found && (
-                        <div className="stat-item">
-                          <span className="stat-label">Solutions Found:</span>
-                          <span className="stat-value">{results.solutions_found}</span>
-                        </div>
-                      )}
-                      {results.accuracy_score && (
-                        <div className="stat-item">
-                          <span className="stat-label">Accuracy Score:</span>
-                          <span className="stat-value">{results.accuracy_score}%</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="result-actions">
-                    <button className="btn-download" onClick={downloadResults}>
-                      <Download size={16} />
-                      Download Results
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="results-actions">
-                <button className="btn-primary" onClick={resetForm}>
-                  <RefreshCw size={16} />
-                  Process Another Script
-                </button>
+              
+              {pdfFile && (
                 <button 
-                  className="btn-secondary" 
-                  onClick={() => window.history.back()}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    margin: '1rem auto 0',
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#10b981',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: '500'
+                  }}
+                  onClick={convertPdfToImages}
                 >
-                  <ArrowLeft size={16} />
-                  Back to Dashboard
+                  <Upload size={20} />
+                  Start Processing
                 </button>
-              </div>
+              )}
             </div>
           )}
         </div>
+
+        {processing && (
+          <div style={{ 
+            backgroundColor: '#fff', 
+            padding: '3rem', 
+            borderRadius: '8px', 
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)', 
+            textAlign: 'center' 
+          }}>
+            <Loader2 size={48} style={{ color: '#4f46e5', marginBottom: '1rem', animation: 'spin 1s linear infinite' }} />
+            <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>
+              {currentStep === 1 && "Converting PDF to images..."}
+              {currentStep === 2 && "Saving images to database..."}
+              {currentStep === 3 && "Converting images with MathFir API..."}
+              {currentStep === 4 && "Restructuring data with MathRes API..."}
+            </h2>
+            <p style={{ margin: '0 0 1.5rem 0', color: '#6b7280' }}>
+              {currentStep === 1 && "Converting your PDF document into high-quality images for processing..."}
+              {currentStep === 2 && "Saving processed images to the database and creating script record..."}
+              {currentStep === 3 && "Processing images through the MathFir conversion API..."}
+              {currentStep === 4 && "Restructuring the processed data through the MathRes API..."}
+            </p>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              gap: '2rem', 
+              fontSize: '0.875rem', 
+              color: '#6b7280' 
+            }}>
+              <span>Subject ID: {selectedSubject}</span>
+              {uploadResults.scriptId && <span>Script ID: {uploadResults.scriptId}</span>}
+              <span>Student: {selectedStudentData?.name}</span>
+              {uploadResults.images.length > 0 && <span>Images: {uploadResults.images.length} pages</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Show uploaded images */}
+        {uploadResults.images.length > 0 && !processing && (
+          <div style={{ 
+            backgroundColor: '#fff', 
+            padding: '2rem', 
+            borderRadius: '8px', 
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)' 
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600' }}>Uploaded Images</h3>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+              gap: '1rem' 
+            }}>
+              {uploadResults.images.slice(0, 4).map((image, index) => (
+                <div key={index} style={{ textAlign: 'center' }}>
+                  <img
+                    src={`data:image/jpeg;base64,${image.data}`}
+                    alt={`Page ${index + 1}`}
+                    style={{ 
+                      width: '100%', 
+                      height: '200px', 
+                      objectFit: 'cover', 
+                      borderRadius: '6px', 
+                      border: '1px solid #e5e7eb' 
+                    }}
+                  />
+                  <span style={{ 
+                    display: 'block', 
+                    marginTop: '0.5rem', 
+                    fontSize: '0.875rem', 
+                    color: '#6b7280' 
+                  }}>
+                    Page {index + 1}
+                  </span>
+                </div>
+              ))}
+              {uploadResults.images.length > 4 && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  height: '200px', 
+                  backgroundColor: '#f3f4f6', 
+                  borderRadius: '6px', 
+                  border: '1px solid #e5e7eb' 
+                }}>
+                  <span style={{ fontSize: '1.125rem', color: '#6b7280' }}>
+                    +{uploadResults.images.length - 4} more
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <button 
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#4f46e5',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '500'
+                }}
+                onClick={resetForm}
+              >
+                Process Another Script
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
