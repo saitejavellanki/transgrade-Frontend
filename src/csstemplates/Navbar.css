@@ -88,7 +88,6 @@
   transition:
     background 0.22s cubic-bezier(.4,0,.2,1),
     color 0.18s cubic-bezier(.4,0,.2,1),
-    box-shadow 0.22s cubic-bezier(.4,0,.2,1),
     transform 0.18s cubic-bezier(.4,0,.2,1);
   position: relative;
   outline: none;
@@ -112,10 +111,6 @@
   width: 24px;
 }
 
-.nav-link:focus-visible {
-  box-shadow: 0 0 0 2px #b9e0ff;
-}
-
 .nav-link:hover,
 .nav-link:focus {
   background: #f5f7fa;
@@ -123,9 +118,8 @@
 }
 
 .nav-link.active {
-  background: #e7efff;
+  background: #f5f7fa;
   color: #2563eb;
-  box-shadow: 0 2px 8px rgba(231, 239, 255, 0.5);
 }
 
 .nav-icon {
@@ -151,7 +145,7 @@
   font-size: 0.98rem;
   cursor: pointer;
   border: none;
-  transition: background 0.22s, color 0.18s, box-shadow 0.22s;
+  transition: background 0.22s, color 0.18s;
   gap: 0.4em;
   position: relative;
 }
@@ -174,10 +168,6 @@
   width: 24px;
 }
 
-.dropdown-toggle:focus-visible {
-  box-shadow: 0 0 0 2px #b9e0ff;
-}
-
 .dropdown-toggle:hover,
 .dropdown-toggle:focus {
   background: #f5f7fa;
@@ -185,7 +175,7 @@
 }
 
 .dropdown-toggle.active {
-  background: #e7efff;
+  background: #f5f7fa;
   color: #2563eb;
 }
 
@@ -269,7 +259,7 @@
 }
 
 .dropdown-item.active {
-  background: #e7efff;
+  background: #f5f7fa;
   color: #2563eb;
 }
 
@@ -291,17 +281,12 @@
   border-radius: 1.5em;
   font-size: 1.2rem;
   margin-left: 0.5vw;
-  transition: background 0.18s, box-shadow 0.18s, color 0.18s;
-}
-
-.mobile-toggle:focus-visible {
-  box-shadow: 0 0 0 2px #b9e0ff;
+  transition: background 0.18s, color 0.18s;
 }
 
 .mobile-toggle:hover {
   background: #e0e7ef;
   color: #2563eb;
-  box-shadow: 0 0 10px 1px #e0e7ef;
 }
 
 /* Mobile Overlay */
@@ -441,7 +426,6 @@
     font-size: 1.1rem;
     color: #5a668a;
     background: none;
-    box-shadow: none;
     border-bottom: 1px solid #f1f5f9;
     font-weight: 500;
     transition: all 0.2s ease;
@@ -473,7 +457,6 @@
   .dropdown-toggle:hover {
     background: #f8fafc;
     color: #2563eb;
-    box-shadow: none;
     transform: none;
     padding-left: 2rem;
   }
@@ -538,7 +521,7 @@
   }
 
   .dropdown-item.active {
-    background: #e7efff;
+    background: #f8fafc;
     color: #2563eb;
   }
 
